@@ -1,0 +1,16 @@
+#!/bin/bash
+echo "Deploying Linuse!"
+# Descarga e instalacion de las commons
+git clone https://github.com/sisoputnfrba/so-commons-library.git ../so-commons-library
+cd ../so-commons-library
+make
+make install
+# Instalacion de la libreria de sockets
+cd ../tp-2019-2c-Los-Borbotones/lib/sockets
+make all
+# Instalacion de la libreria Hilolay
+cd ../hilolay
+make all
+# Instalacion de la libreria libMUSE
+cd ../libMUSE
+make all
