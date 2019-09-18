@@ -17,6 +17,7 @@ git clone https://github.com/sisoputnfrba/tp-2019-2c-Los-Borbotones
 ```
 3. Ejecutar el deployer ubicado en el directorio principal del repo
 ```sh
+cd tp-2019-2c-Los-Borbotones
 sudo ./deploy
 ```
 _El deployer instala las commons y las librerias compartidas._
