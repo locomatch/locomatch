@@ -72,7 +72,6 @@ void cargar_config(){
 
     if(has_property("MAX_MULTIPROG")){
 		configData->max_multiprog = config_get_int_value(config, "MAX_MULTIPROG");
-
 	}else exit(-1);
 
     if(has_property("SEM_IDS") && has_property("SEM_INIT") && has_property("SEM_MAX")){
