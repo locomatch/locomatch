@@ -1,5 +1,5 @@
 TARGET = suse
-LIBS = -lcommons -lsockets
+LIBS = -lcommons -lsockets -pthread
 CC = gcc
 CFLAGS = -g -Wall
 
