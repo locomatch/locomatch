@@ -4,14 +4,16 @@ int main(void) {
 
 	init_logger();
 
-	log_info(logger, "[SUSE] Iniciando");
-
+	log_info(logger, "[SUSE] Iniciando..");
 	init_suse();
 
-	log_info(logger, "[SUSE] Finalizando");
+	init_console();
+
+	log_info(logger, "[SUSE] Finalizando..");
 	end_suse();
 
-	return EXIT_SUCCESS;
+	printf("[SUSE] GoodBye!\n");
+	exit(EXIT_SUCCESS);
 }
 
 void init_logger(){
@@ -21,12 +23,14 @@ void init_logger(){
 
 void init_suse(){
 
+	program_id_counter = 0;
+
 	config = generar_config();
 	cargar_config(config);
 
+	init_scheduler();
+	init_semaforos();
 	init_server();
-
-	//TODO: init_scheduler();
 
 	log_info(logger, "[SUSE] Inicializacion Completa");
 }
@@ -48,7 +52,7 @@ void cargar_config(){
 
 	configData = malloc(sizeof(t_configData));
 	if(configData == NULL){
-		log_error(logger, "Error al cargar el archivo de configuracion.");
+		print_malloc_error("Archivo de Configuracion");
 		log_destroy(logger);
 		config_destroy(config);
 		exit(-1);
@@ -61,30 +65,36 @@ void cargar_config(){
 		exit(-1);
 	}
 
-    if(has_property("LISTEN_PORT")){
-        configData->listen_port = string_new();
-        string_append(&configData->listen_port, config_get_string_value(config, "LISTEN_PORT"));
-    } else exit(-1);
+	if(has_property("LISTEN_PORT")){
+		configData->listen_port = string_new();
+		string_append(&configData->listen_port, config_get_string_value(config, "LISTEN_PORT"));
+	} else exit(-1);
 
-    if(has_property("METRICS_TIMER")){
-    	configData->metrics_timer = config_get_int_value(config, "METRICS_TIMER");
+	if(has_property("METRICS_TIMER")){
+		configData->metrics_timer = config_get_int_value(config, "METRICS_TIMER");
 	}else exit(-1);
 
-    if(has_property("MAX_MULTIPROG")){
+	if(has_property("MAX_MULTIPROG")){
 		configData->max_multiprog = config_get_int_value(config, "MAX_MULTIPROG");
 	}else exit(-1);
 
-    if(has_property("SEM_IDS") && has_property("SEM_INIT") && has_property("SEM_MAX")){
-    	configData->semaforos = _get_semaforos_from_config();
-    }else exit(-1);
+	if(has_property("SEM_IDS") && has_property("SEM_INIT") && has_property("SEM_MAX")){
+		configData->semaforos = _get_semaforos_from_config();
+		if(configData->semaforos == NULL){
+			print_malloc_error("Archivo de Configuracion");
+			log_destroy(logger);
+			config_destroy(config);
+			exit(-1);
+		}
+	}else exit(-1);
 
-    if(has_property("ALPHA_SJF")){
-    	configData->alpha_sjf = atof(config_get_string_value(config, "ALPHA_SJF"));
-  	}else exit(-1);
+	if(has_property("ALPHA_SJF")){
+		configData->alpha_sjf = atof(config_get_string_value(config, "ALPHA_SJF"));
+	}else exit(-1);
 
-    config_destroy(config);
+	config_destroy(config);
 
-    log_debug(logger,"Se ha cargado correctamente el archivo de configuracion.");
+	log_debug(logger,"Se ha cargado correctamente el archivo de configuracion.");
 }
 
 void init_server(){
@@ -92,10 +102,15 @@ void init_server(){
 	server_socket = iniciar_servidor("127.0.0.1", configData->listen_port);
 	if(server_socket == -1) exit(-1);
 
-	pthread_create (&socket_thread, NULL, &wait_for_client, NULL);
+	clientes = list_create();
+
+	if (pthread_create (&socket_thread, NULL, &wait_for_client, NULL) != 0){
+		print_pthread_create_error("socket_thread");
+		exit(-1);
+	}
 }
 
-void* wait_for_client(void *arg){
+void *wait_for_client(void *arg){
 
 	log_info(logger, "Esperando Clientes.");
 	int cliente;
@@ -103,18 +118,55 @@ void* wait_for_client(void *arg){
 	while(!endsuse){
 		cliente = esperar_cliente(server_socket);
 		if (cliente > 0) {
-			//TODO: Cargar cliente y recibir info
+			manage_operation(cliente);
 		}
+
+		cliente = NULL_CLIENTE;
 	}
 
-	return EXIT_SUCCESS;
+	log_debug(logger, "Finalizando Servidor Escucha");
+
+	pthread_exit(EXIT_SUCCESS);
+}
+
+void manage_operation(int client_fd){
+
+	log_debug(logger, "Recibiendo operacion..");
+
+	int codigo = recibir_operacion(client_fd);
+
+	switch (codigo) {
+		case SUSE_INIT:
+			new_program(client_fd);
+			break;
+		case -1:
+			log_debug(logger, "El cliente se desconecto.");
+			break;
+		default:
+			log_debug(logger, "Operacion desconocida - op_code: %d", codigo);
+			break;
+	}
+
+}
+
+void join_threads(){
+
+	shutdown(server_socket,0);
+
+	pthread_join(socket_thread, NULL);
+	pthread_join(scheduler->long_term, NULL);
+	pthread_join(scheduler->short_term, NULL);
+
+	destroy_scheduler(scheduler);
 }
 
 void end_suse(){
 
-	endsuse = true;
-	pthread_join(socket_thread, NULL);
-	shutdown(server_socket,2);
+	join_threads();
+
+	destroy_lists();
+	destroy_mutexes();
+	destroy_configData();
 	log_destroy(logger);
 }
 
@@ -141,7 +193,8 @@ t_list* _get_semaforos_from_config(){
 	int i = 0;
 	while (array_ids[i] != NULL) {
 
-		t_semaforo* semaforo = malloc(sizeof(t_semaforo));
+		t_config_semaforo* semaforo = malloc(sizeof(t_config_semaforo));
+		if(semaforo == NULL) return NULL;
 
 		semaforo->id = array_ids[i];
 		semaforo->init = atoi(array_init[i]);
@@ -153,4 +206,44 @@ t_list* _get_semaforos_from_config(){
 	}
 
 	return semaforos;
+}
+
+void init_console(){
+
+	char* linea;
+	while (!endsuse){
+
+		linea = readline("");
+		if(!linea) continue;
+
+		if(!strncasecmp(linea, "clear", 5)){
+			add_history(linea);
+			free(linea);
+			system("clear");
+			continue;
+		}
+
+		if(!strncasecmp(linea, "salir", 5)){
+			free(linea);
+			endsuse = true;
+			continue;
+		}
+
+		add_history(linea);
+
+		free(linea);
+	}
+}
+
+void destroy_configData(){
+
+	free(configData->listen_port);
+	list_destroy_and_destroy_elements(configData->semaforos, (void*) destroy_config_semaforo);
+	free(configData);
+}
+
+void destroy_config_semaforo(t_config_semaforo *config_semaforo){
+
+	free(config_semaforo->id);
+	free(config_semaforo);
 }
