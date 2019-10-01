@@ -6,7 +6,13 @@
 
 typedef enum{
 	MENSAJE,
-	PAQUETE
+	PAQUETE,
+	SUSE_INIT,
+	SUSE_CREATE,
+	SUSE_SCHEDULE_NEXT,
+	SUSE_WAIT,
+	SUSE_SIGNAL,
+	SUSE_JOIN
 }op_code;
 
 /*        GLOBALS        */

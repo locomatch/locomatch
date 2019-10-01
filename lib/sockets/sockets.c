@@ -43,11 +43,11 @@ void* serializar_paquete(t_paquete* paquete, int bytes){
 	return magic;
 }
 
-void enviar_mensaje(char* mensaje, int socket_cliente){
+void enviar_mensaje(int op_code, char* mensaje, int socket_cliente){
 
 	t_paquete* paquete = malloc(sizeof(t_paquete));
 
-	paquete->codigo_operacion = MENSAJE;
+	paquete->codigo_operacion = op_code;
 	paquete->buffer = malloc(sizeof(t_buffer));
 	paquete->buffer->size = strlen(mensaje) + 1;
 	paquete->buffer->stream = malloc(paquete->buffer->size);
@@ -66,21 +66,34 @@ void enviar_mensaje(char* mensaje, int socket_cliente){
 	eliminar_paquete(paquete);
 }
 
+int enviar_operacion(int socket_cliente, int op_code){
+
+	if(send(socket_cliente, &op_code, sizeof(op_code), 0) == -1){
+		printf("Error al enviar la operacion\n");
+		return -1;
+	}
+
+	return 0;
+}
 
 void crear_buffer(t_paquete* paquete){
+
 	paquete->buffer = malloc(sizeof(t_buffer));
 	paquete->buffer->size = 0;
 	paquete->buffer->stream = NULL;
 }
 
-t_paquete* crear_paquete(void){
+t_paquete* crear_paquete(int op_code){
+
 	t_paquete* paquete = malloc(sizeof(t_paquete));
-	paquete->codigo_operacion = PAQUETE;
+	paquete->codigo_operacion = op_code;
 	crear_buffer(paquete);
+
 	return paquete;
 }
 
 void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio){
+
 	paquete->buffer->stream = realloc(paquete->buffer->stream, paquete->buffer->size + tamanio + sizeof(int));
 
 	memcpy(paquete->buffer->stream + paquete->buffer->size, &tamanio, sizeof(int));
@@ -90,6 +103,7 @@ void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio){
 }
 
 void enviar_paquete(t_paquete* paquete, int socket_cliente){
+
 	int bytes = paquete->buffer->size + 2*sizeof(int);
 	void* a_enviar = serializar_paquete(paquete, bytes);
 
@@ -102,12 +116,14 @@ void enviar_paquete(t_paquete* paquete, int socket_cliente){
 }
 
 void eliminar_paquete(t_paquete* paquete){
+
 	free(paquete->buffer->stream);
 	free(paquete->buffer);
 	free(paquete);
 }
 
 void liberar_conexion(int socket_cliente){
+
 	close(socket_cliente);
 }
 
@@ -117,12 +133,12 @@ void liberar_conexion(int socket_cliente){
 int iniciar_servidor(char* ip, char* puerto){
 
 	int socket_servidor, error;
-    struct addrinfo hints, *servinfo, *p;
+	struct addrinfo hints, *servinfo, *p;
 
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
 
 	error = getaddrinfo(ip, puerto, &hints, &servinfo);
 	if(error != 0){
@@ -159,7 +175,10 @@ int esperar_cliente(int socket_servidor){
 	socklen_t tam_direccion = sizeof(struct sockaddr_in);
 
 	int socket_cliente = accept(socket_servidor, (void*) &dir_cliente, &tam_direccion);
-	if(socket_cliente == -1) printf("Error al aceptar la conexion: %s\n", strerror(errno));
+	if(socket_cliente == -1){
+		printf("Error al aceptar la conexion: %s\n", strerror(errno));
+		return socket_cliente;
+	}
 
 	printf("Se conecto un cliente!\n");
 
@@ -220,5 +239,4 @@ t_list* recibir_paquete(int socket_cliente){
 
 	free(buffer);
 	return valores;
-	return NULL;
 }

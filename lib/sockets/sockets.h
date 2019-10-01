@@ -34,8 +34,9 @@ typedef struct{
 //	SOCKETS CLIENTE
 int crear_conexion_con_servidor(char* ip, char* puerto);
 void* serializar_paquete(t_paquete* paquete, int bytes);
-void enviar_mensaje(char* mensaje, int socket_cliente);
-t_paquete* crear_paquete(void);
+void enviar_mensaje(int op_code, char* mensaje, int socket_cliente);
+int enviar_operacion(int socket_cliente, int op_code);
+t_paquete* crear_paquete(int op_code);
 void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio);
 void enviar_paquete(t_paquete* paquete, int socket_cliente);
 void liberar_conexion(int socket_cliente);
