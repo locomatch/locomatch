@@ -1,5 +1,5 @@
-#ifndef SAC_SERVIDOR_H_
-#define SAC_SERVIDOR_H_
+#ifndef SAC_CLI_H_
+#define SAC_CLI_H_
 
 /*        INCLUDES        */
 
@@ -13,4 +13,4 @@
 
 int main(void);
 
-#endif /* SAC_SERVIDOR_H_ */
+#endif /* SAC_CLI_H_ */
