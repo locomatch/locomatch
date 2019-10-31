@@ -11,6 +11,7 @@
 #include <netdb.h>
 #include <unistd.h>
 
+
 /*        CONSTANTS        */
 /*        GLOBALS        */
 /*        DEFINITIONS        */
@@ -27,6 +28,5 @@
 /*        PROTOTYPES        */
 
 int run_server();
-int run_client();
 
 #endif /* SERVER_H_ */

@@ -4,7 +4,8 @@
 /*        INCLUDES        */
 
 #include <stdio.h>
-#include "../server.c"
+#include "server.h"
+#include "parser.h"
 
 /*        CONSTANTS        */
 /*        GLOBALS        */
@@ -12,5 +13,7 @@
 /*        PROTOTYPES        */
 
 int main(void);
+
+//char* action_open(package_open* package);
 
 #endif /* SAC_SERVIDOR_H_ */
