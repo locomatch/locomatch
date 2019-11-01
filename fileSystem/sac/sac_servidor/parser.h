@@ -9,6 +9,13 @@
 #include <stdbool.h>
 #include <commons/string.h>
 #include <commons/error.h>
+
+typedef struct {
+    char* instruction;
+    char* path;
+    char* mode;
+} package_open;
+
 #include "sac_servidor.h"
 
 /*        CONSTANTS        */
@@ -17,11 +24,11 @@
 
 
 // OPEN [path] [mode]
-typedef struct {
+/*typedef struct {
     char* instruction;
     char* path;
     char* mode;
-} package_open;
+} package_open;*/
 
 /*        PROTOTYPES        */
 
