@@ -10,7 +10,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
-
+#include <commons/log.h> //loggger
 
 /*        CONSTANTS        */
 /*        GLOBALS        */
@@ -25,8 +25,13 @@
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
 //#define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
 
+typedef struct {
+    int portNumber;
+    t_log* logger;
+} server_info;
+
 /*        PROTOTYPES        */
 
-int run_server();
+void* run_server(void* args);
 
 #endif /* SERVER_H_ */
