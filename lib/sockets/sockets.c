@@ -12,7 +12,6 @@ int crear_conexion_con_servidor(char *ip, char* puerto){
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
-
 	getaddrinfo(ip, puerto, &hints, &server_info);
 
 	int socket_cliente = socket(server_info->ai_family, server_info->ai_socktype, server_info->ai_protocol);
@@ -139,7 +138,7 @@ int iniciar_servidor(char* ip, char* puerto){
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
-
+//Mismo con pedir IP si usas LOCAL HOST?
 	error = getaddrinfo(ip, puerto, &hints, &servinfo);
 	if(error != 0){
 		printf("Error al crear el socket: %s\n", gai_strerror(error));

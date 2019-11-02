@@ -12,7 +12,14 @@ typedef enum{
 	SUSE_WAIT,
 	SUSE_SIGNAL,
 	SUSE_JOIN,
-	SUSE_CLOSE
+  SUSE_CLOSE,
+	MUSE_ALLOC,
+	MUSE_FREE,
+	MUSE_GET,
+	MUSE_CPY,
+	MUSE_MAP,
+	MUSE_SYNC,
+	MUSE_UNMAP
 }op_code;
 
 /*        GLOBALS        */
