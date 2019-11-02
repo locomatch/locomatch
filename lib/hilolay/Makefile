@@ -1,32 +1,40 @@
-TARGET = libhilolay.so
-LIBS = -lcommons
-CC = gcc
-CFLAGS = -g -Wall
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+	CFLAGS := -D_XOPEN_SOURCE -Wno-deprecated-declarations
+endif
 
-.PHONY: default all clean
+ifeq ($(UNAME_S),Darwin)
+  USR_PATH := /usr/local
+else
+  USR_PATH := /usr
+endif
 
-default: $(TARGET) 
-all: clean default install
+CC := gcc
+MAJOR := 0
+MINOR := 1
+NAME := hilolay
+VERSION := $(MAJOR).$(MINOR)
+BUILD=bin
 
-OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
-HEADERS = $(wildcard *.h)
-H_SRCS = $(shell find . -iname "*.h" | tr '\n' ' ')
-
-%.o: %.c $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-.PRECIOUS: $(TARGET) $(OBJECTS)
-
-$(TARGET): $(OBJECTS)
-	$(CC) -shared $(OBJECTS) $(CFLAGS) $(LIBS) -o $@
-
-install: 
-	cp -u libhilolay.so /usr/lib
-	rm -rf /usr/include/linuse/hilolay/
-	mkdir -p /usr/include/linuse/hilolay
-	cp --parents $(H_SRCS) /usr/include/linuse/hilolay
+all: clean hilolay.so
 
 clean:
-	rm -f *.o
-	rm -f $(TARGET)
-	rm -f *.log
+	$(RM) *.o
+	$(RM) simple
+	$(RM) *.so
+	$(RM) -r bin/
+	mkdir -p bin
+
+$(NAME).o:
+	$(CC) -c -Wall $(CFLAGS) -fpic $(NAME)_internal.c -o $(BUILD)/$(NAME).o
+
+$(NAME).so: $(NAME).o
+	$(CC) -shared -o $(BUILD)/lib$(NAME).so $(BUILD)/$(NAME).o
+
+install:
+	mkdir -p $(USR_PATH)/include/hilolay/
+	cp $(NAME)_internal.h $(USR_PATH)/include/hilolay/internal.h
+	cp $(NAME).h $(USR_PATH)/include/hilolay/hilolay.h
+	cp $(NAME)_alumnos.h $(USR_PATH)/include/hilolay/alumnos.h
+	chmod 0755 $(USR_PATH)/include/hilolay/*
+	cp $(BUILD)/lib$(NAME).so $(USR_PATH)/lib/lib$(NAME).so
