@@ -1,0 +1,2 @@
+LISTEN_PORT=8003
+LOG_PATH=filesystem.log

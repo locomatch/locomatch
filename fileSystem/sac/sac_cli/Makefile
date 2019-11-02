@@ -1,5 +1,5 @@
-TARGET = sac_servidor
-LIBS = -lcommons -lsockets -pthread -lpthread
+TARGET = sac_cli
+LIBS = -lcommons -lsockets
 CC = gcc
 CFLAGS = -g -Wall
 
