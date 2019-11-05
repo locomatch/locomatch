@@ -53,7 +53,7 @@ void* run_server(void* args){
 
                 write(newsockfd,response,strlen(response)+1);
 
-                free(response);
+                //free(response); ESTO DA SEGMENT FAULT
             
             }else{
                  break;

@@ -12,6 +12,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <commons/log.h>
 
 /*        CONSTANTS        */
 /*        GLOBALS        */
@@ -26,8 +27,14 @@
 /*        PROTOTYPES        */
 
 int main(void);
-void sac_open(char* msg);/*
-void sac_read(void);*/
+void sac_open(char* msg);
+void sac_read(char* msg);
+void sac_getattr(char* msg);
+void sac_mknod(char* msg);
+void sac_mkdir(char* msg);
+void sac_write(char* msg);
+void sac_opendir(char* msg);
+void sac_readdir(char* msg);
 void sac_send(char* msg,int serverSocket);
 
 #endif /* SAC_CLI_H_ */

@@ -16,6 +16,48 @@ typedef struct {
     char* mode;
 } package_open;
 
+typedef struct {
+    char* instruction;
+    char* path;
+    char* mode;
+} package_read;
+
+typedef struct {
+    char* instruction;
+    char* path;
+    char* mode;
+} package_getattr;
+
+typedef struct {
+    char* instruction;
+    char* path;
+    char* mode;
+} package_mknod;
+
+typedef struct {
+    char* instruction;
+    char* path;
+    char* mode;
+} package_mkdir;
+
+typedef struct {
+    char* instruction;
+    char* path;
+    char* mode;
+} package_write;
+
+typedef struct {
+    char* instruction;
+    char* path;
+    char* mode;
+} package_opendir;
+
+typedef struct {
+    char* instruction;
+    char* path;
+    char* mode;
+} package_readdir;
+
 #include "sac_servidor.h"
 
 /*        CONSTANTS        */

@@ -35,7 +35,50 @@ int main(void) {
     return 0;
 }
 
+/* action_open abre un archivo */
 char* action_open(package_open* package) {
     log_info(logger,"Se recibió una accion open");
     return "je";
+}
+
+/* action_read leer un archivo abierto */
+char* action_read(package_read* package) {
+    log_info(logger,"Se recibio una accion read");
+    return "ja";
+}
+
+/* action_getattr obtiene los atributos de un archivo */
+char* action_getattr(package_getattr* package) {
+    log_info(logger,"Se recibio una accion getattr");
+    return "ja";
+}
+
+/* action_mknod crea el nodo de un archivo */
+char* action_mknod(package_mknod* package) {
+    log_info(logger,"Se recibio una accion mknod");
+    return "jo";
+}
+
+/* action_mkdir crea un directorio */
+char* action_mkdir(package_mkdir* package) {
+    log_info(logger,"Se recibio una accion mkdir");
+    return "jo";
+}
+
+/* action_write escribe en un archivo abierto */
+char* action_write(package_write* package) {
+    log_info(logger,"Se recibio una accion write");
+    return "jo";
+}
+
+/* action_opendir abre un directorio */
+char* action_opendir(package_opendir* package) {
+    log_info(logger,"Se recibio una accion opendir");
+    return "jo";
+}
+
+/* action_readdir abre un directorio */
+char* action_readdir(package_readdir* package) {
+    log_info(logger,"Se recibio una accion readdir");
+    return "jo";
 }
