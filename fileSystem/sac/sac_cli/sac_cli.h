@@ -14,27 +14,27 @@
 #include <unistd.h>
 #include <commons/log.h>
 
+#include <stddef.h>
+#include <fuse.h>
+#include <errno.h>
+#include <fcntl.h>
+
 /*        CONSTANTS        */
 /*        GLOBALS        */
 
-/*struct fuse_operations sac_oper = {
-  .open = sac_open,
-  .read = sac_read
-  //faltan varias operaciones
-};*/
 
 /*        DEFINITIONS        */
 /*        PROTOTYPES        */
 
-int main(void);
-void sac_open(char* msg);
-void sac_read(char* msg);
-void sac_getattr(char* msg);
-void sac_mknod(char* msg);
-void sac_mkdir(char* msg);
-void sac_write(char* msg);
-void sac_opendir(char* msg);
-void sac_readdir(char* msg);
+int main(int argc,char *argv[]);
+int sac_open(char* msg);
+int sac_read(char* msg);
+int sac_getattr(char* msg);
+int sac_mknod(char* msg);
+int sac_mkdir(char* msg);
+int sac_write(char* msg);
+int sac_opendir(char* msg);
+int sac_readdir(char* msg);
 void sac_send(char* msg,int serverSocket);
 
 #endif /* SAC_CLI_H_ */

@@ -7,7 +7,62 @@
 int serverSocket;
 t_log* logger;
 
-int main (void) {
+/*
+ * Esta es una estructura auxiliar utilizada para almacenar parametros
+ * que nosotros le pasemos por linea de comando a la funcion principal
+ * de FUSE
+ */
+struct t_runtime_options {
+	char* welcome_msg;
+} runtime_options;
+
+/*
+ * Esta Macro sirve para definir nuestros propios parametros que queremos que
+ * FUSE interprete. Esta va a ser utilizada mas abajo para completar el campos
+ * welcome_msg de la variable runtime_options
+ */
+#define CUSTOM_FUSE_OPT_KEY(t, p, v) { t, offsetof(struct t_runtime_options, p), v }
+
+/*
+ * Esta es la estructura principal de FUSE con la cual nosotros le decimos a
+ * biblioteca que funciones tiene que invocar segun que se le pida a FUSE.
+ * Como se observa la estructura contiene punteros a funciones.
+ */
+struct fuse_operations sac_oper = {
+  .open = sac_open,
+  .read = sac_read,
+  .getattr = sac_getattr,
+  .mknod = sac_mknod,
+  .mkdir = sac_mkdir,
+  .write = sac_write
+  /*.opendir = sac_opendir,
+  .readdir = sac_readdir*/
+  //TODO ver operaciones faltantes
+};
+
+/** keys for FUSE_OPT_ options */
+enum {
+	KEY_VERSION,
+	KEY_HELP,
+};
+
+/*
+ * Esta estructura es utilizada para decirle a la biblioteca de FUSE que
+ * parametro puede recibir y donde tiene que guardar el valor de estos
+ */
+static struct fuse_opt fuse_options[] = {
+		// Este es un parametro definido por nosotros
+		CUSTOM_FUSE_OPT_KEY("--welcome-msg %s", welcome_msg, 0),
+
+		// Estos son parametros por defecto que ya tiene FUSE
+		FUSE_OPT_KEY("-V", KEY_VERSION),
+		FUSE_OPT_KEY("--version", KEY_VERSION),
+		FUSE_OPT_KEY("-h", KEY_HELP),
+		FUSE_OPT_KEY("--help", KEY_HELP),
+		FUSE_OPT_END,
+};
+
+int main (int argc,char *argv[]) {
     printf("Corriendo el cliente\n");
     
     //acá tengo que implementar fuse para mandar todo a sac_servidor que se va a encargar de implementar el fs
@@ -28,11 +83,26 @@ int main (void) {
     connect(serverSocket, serverInfo->ai_addr, serverInfo->ai_addrlen);
 	freeaddrinfo(serverInfo);	// No lo necesitamos mas
 
+    /*FUSE*/
+    // See which version of fuse we're running
+    fprintf(stderr, "Fuse library version %d.%d\n", FUSE_MAJOR_VERSION, FUSE_MINOR_VERSION);
+    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
-    //Prueba de envio
-    //sac_send(serverSocket);
-    sac_open("open bla bla");
-    sac_read("read bla bla");
+	// Limpio la estructura que va a contener los parametros
+	memset(&runtime_options, 0, sizeof(struct t_runtime_options));
+
+	// Esta funcion de FUSE lee los parametros recibidos y los intepreta
+	if (fuse_opt_parse(&args, &runtime_options, fuse_options, NULL) == -1){
+		/** error parsing options */
+		perror("Invalid arguments!");
+		return EXIT_FAILURE;
+	}
+
+    // Esta es la funcion principal de FUSE, es la que se encarga
+	// de realizar el montaje, comuniscarse con el kernel, delegar todo
+	// en varios threads
+	return fuse_main(args.argc, args.argv, &sac_oper, NULL);
+
 }
 
 void sac_send(char* msg, int serverSocket){
@@ -56,57 +126,57 @@ void sac_send(char* msg, int serverSocket){
 }*/
 
 /* sac_open abre un archivo */
-void sac_open(char* msg) {
+int sac_open(char* msg) {
     log_info(logger,"Se recibio una instruccion open");
     sac_send(msg, serverSocket);
-    return;
+    return 0;
 }
 
 /* sac_read leer un archivo abierto */
-void sac_read(char* msg) {
+int sac_read(char* msg) {
     log_info(logger,"Se recibio una instruccion read");
     sac_send(msg, serverSocket);
-    return;
+    return 0;
 }
 
 /* sac_getattr obtiene los atributos de un archivo */
-void sac_getattr(char* msg) {
+int sac_getattr(char* msg) {
     log_info(logger,"Se recibio una instruccion getattr");
     sac_send(msg, serverSocket);
-    return;
+    return 0;
 }
 
 /* sac_mknod crea el nodo de un archivo */
-void sac_mknod(char* msg) {
+int sac_mknod(char* msg) {
     log_info(logger,"Se recibio una instruccion mknod");
     sac_send(msg, serverSocket);
-    return;
+    return 0;
 }
 
 /* sac_mkdir crea un directorio */
-void sac_mkdir(char* msg) {
+int sac_mkdir(char* msg) {
     log_info(logger,"Se recibio una instruccion mkdir");
     sac_send(msg, serverSocket);
-    return;
+    return 0;
 }
 
 /* sac_write escribe en un archivo abierto */
-void sac_write(char* msg) {
+int sac_write(char* msg) {
     log_info(logger,"Se recibio una instruccion write");
     sac_send(msg, serverSocket);
-    return;
+    return 0;
 }
 
 /* sac_opendir abre un directorio */
-void sac_opendir(char* msg) {
+int sac_opendir(char* msg) {
     log_info(logger,"Se recibio una instruccion opendir");
     sac_send(msg, serverSocket);
-    return;
+    return 0;
 }
 
 /* sac_readdir abre un directorio */
-void sac_readdir(char* msg) {
+int sac_readdir(char* msg) {
     log_info(logger,"Se recibio una instruccion readdir");
     sac_send(msg, serverSocket);
-    return;
+    return 0;
 }

@@ -1,7 +1,7 @@
 TARGET = sac_cli
-LIBS = -lcommons -lsockets
+LIBS = -lcommons -lsockets -lpthread -lfuse
 CC = gcc
-CFLAGS = -g -Wall
+CFLAGS = -g -Wall -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=27
 
 .PHONY: default all clean
 
