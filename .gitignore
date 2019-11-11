@@ -135,6 +135,14 @@ local.properties
 # .nfs files are created when an open file is removed but is still being accessed
 .nfs*
 
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
 # Archivos de logs
 *.log
 
@@ -143,5 +151,6 @@ planificacion/suse/suse
 memoria/muse/muse
 fileSystem/fuse/fuse
 fileSystem/sac/sac_servidor/sac_servidor
+fileSystem/sac/sac_cli/sac_cli
 
 # End of https://www.gitignore.io/api/c,linux,eclipse
