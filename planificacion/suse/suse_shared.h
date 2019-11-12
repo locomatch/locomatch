@@ -13,6 +13,7 @@
 #include <commons/collections/list.h>
 #include <linuse/sockets/sockets.h>
 #include <pthread.h>
+#include <sys/time.h>
 #include "suse_errors.h"
 
 /*        CONSTANTS        */

@@ -22,8 +22,11 @@ typedef enum {
 /*        DEFINITIONS        */
 
 typedef struct {
-	int total;
-	int last_burst;
+	float total;
+	struct timeval exec_start;
+	struct timeval exec_end;
+	float last_burst;
+	float last_estimate;
 } t_burst;
 
 typedef struct {
@@ -32,11 +35,11 @@ typedef struct {
 } t_pcb;
 
 typedef struct {
+	int socket;
 	pid_t tid;
 	t_state state;
 	t_pcb *pcb;
 	t_burst *time;
-	int pid;
 } t_tcb;
 
 typedef struct {
@@ -49,7 +52,8 @@ typedef struct {
 	int socket;
 	t_list *ready;
 	t_tcb *exec;
-	t_short_scheduler *scheduler;
+	pthread_t short_scheduler;
+	pthread_mutex_t ready_mutex;
 } t_program;
 
 typedef struct {
@@ -73,34 +77,36 @@ t_queue *exitQueue;
 pthread_mutex_t state_list_mutex;
 pthread_mutex_t create_program_mutex;
 
-pthread_t *long_term_scheduler;
+pthread_t long_term_scheduler;
 
 /*        PROTOTYPES        */
 
 void init_scheduler();
 void init_semaforos();
 void *schedule_long_term(void *arg);
-void schedule_next_for(int socket);
+void *schedule_short_term(void *arg);
+void schedule_next_for(t_program * program);
+void change_exec_tcb(t_program *program, t_tcb *shortest_tcb, int shortest_estimate);
+void notify_program(t_program *program, op_code codigo);
+int get_estimate(t_burst *burst);
+void set_new_timings(t_burst *timings);
 t_tcb *get_new_tcb();
 void move_tcb_to(t_tcb *tcb, int state);
-int find_tcb_pos(t_list *list, pid_t tid, int pid);
-int find_program_pos(int pid);
-int find_program_pos_by_socket(int socket);
+int find_tcb_pos(t_list *list, pid_t tid, int socket);
+int find_program_pos(int socket);
 bool is_program_loaded(int socket);
-t_program *get_program(int(*find_by)(int), int unint);
-void program_remove_tcb_from_state(int pid, pid_t tid, int state);
+t_program *get_program(int socket);
+int get_program_id(int socket);
+void program_remove_tcb_from_state(int socket, pid_t tid, int state);
 void program_add_tcb_to_state(t_tcb *tcb, int state);
 
 t_semaforo *create_semaforo(t_config_semaforo *config_semaforo);
 t_burst *create_burst();
-t_pcb *create_pcb(pid_t process_id, char* process_name);
-t_tcb *create_tcb(int program_id, pid_t thread_id, pid_t process_id, char* process_name);
+t_tcb *create_tcb(int socket, pid_t thread_id);
 t_program *create_program(int socket);
-t_short_scheduler *create_short_scheduler();
 
 void destroy_semaforo(t_semaforo *semaforo);
 void destroy_burst(t_burst *burst);
-void destroy_pcb(t_pcb *pcb);
 void destroy_tcb(t_tcb *tcb);
 void destroy_program(t_program *program);
 void destroy_scheduler(pthread_t *scheduler);
