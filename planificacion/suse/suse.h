@@ -35,7 +35,6 @@ t_config* generar_config();
 void cargar_config();
 void init_server();
 void* wait_for_client(void *arg);
-void manage_operation(int client_fd);
 void join_threads();
 void end_suse();
 bool has_property(char* property);

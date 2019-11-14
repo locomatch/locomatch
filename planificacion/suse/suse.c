@@ -119,7 +119,6 @@ void *wait_for_client(void *arg){
 		cliente = esperar_cliente(server_socket);
 		if (cliente > 0) {
 			if(!is_program_loaded(cliente)) create_program(cliente);
-			manage_operation(cliente);
 		}
 
 		cliente = NULL_CLIENTE;
@@ -130,50 +129,17 @@ void *wait_for_client(void *arg){
 	pthread_exit(EXIT_SUCCESS);
 }
 
-void manage_operation(int client_fd){
-
-	log_debug(logger, "Recibiendo operacion..");
-
-	int codigo = recibir_operacion(client_fd);
-
-	t_list *parametros = list_create();
-	switch (codigo) {
-		case SUSE_CREATE:
-			parametros = recibir_paquete(client_fd);
-			create_tcb(client_fd, (int)list_get(parametros, 0), -1, "placeholder_name");
-			break;
-		case SUSE_SCHEDULE_NEXT:
-			schedule_next_for(client_fd);
-			break;
-		case SUSE_WAIT:
-			break;
-		case SUSE_SIGNAL:
-			break;
-		case SUSE_JOIN:
-			break;
-		case SUSE_CLOSE:
-			break;
-		case -1:
-			log_debug(logger, "El cliente se desconecto.");
-			break;
-		default:
-			log_debug(logger, "Operacion desconocida - op_code: %d", codigo);
-			break;
-	}
-
-}
-
 void join_threads(){
 
 	shutdown(server_socket,0);
 
 	pthread_join(socket_thread, NULL);
-	pthread_join((pthread_t)long_term_scheduler, NULL);
+	pthread_join(long_term_scheduler, NULL);
 
 	t_program *cliente;
 	for(int i = 0; i < list_size(clientes); i++){
 		cliente = list_get(clientes, i);
-		pthread_join((cliente->scheduler)->short_term_scheduler, NULL);
+		pthread_join(cliente->short_scheduler, NULL);
 	}
 }
 
