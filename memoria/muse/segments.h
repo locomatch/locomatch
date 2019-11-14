@@ -9,20 +9,26 @@
 #include <unistd.h>
 
 typedef struct{
-  int key;
   char* value;
 }page_t;
 
+typedef struct heapMetadata{
+  u_int32_t size;
+  bool isFree;
+}heapMetadata;
+
 typedef struct page_info{
+  int num_pag;
   page_t* page_ptr;
-  int index;
+  bool isFree;
   struct page_info* next;
   struct page_info* prev;
 }page_info_t;
 
 typedef struct segment{
-  char* name; //NO SIRVE?
+  int seg_num;
   page_info_t* pages;
+  heapMetadata* seg_heap;
   struct segment* next;
   struct segment* prev;
 }segment_t;
@@ -36,6 +42,8 @@ int PAGE_SIZE;
 t_log* logger;
 int VALUE_SIZE;
 t_config* config;
+
+int SEGMENT_NUM = 0;
 //COMUNICACION CON SOCKET? Muse?
 
 pthread_mutex_t main_memory_mutex;
@@ -43,9 +51,9 @@ pthread_mutex_t main_memory_mutex;
 // --------------------------
 
 
-page_t* create_page(int key, char* value);
+page_t* create_page();
 page_info_t* create_page_info();
-segment_t* create_segment(char* table_name);
+segment_t* create_segment();
 page_info_t* find_page_info(char* table_name, int key);
 page_info_t* save_page(char* table_name, page_t* page);
 page_info_t* insert_page(char* table_name, page_t* page);
@@ -71,7 +79,6 @@ char* exec_in_memory(int memory_fd, char* payload);
 void remove_segment(char* table_name, int save_to_fs_bit);
 int* get_used_pages();
 int* update_used_pages();
-int page_is_on_use(int index);
 int find_unmodified_page();
 
 void print_everything();
