@@ -4,11 +4,18 @@
 /*        INCLUDES        */
 
 #include <stdio.h>
+#include <commons/config.h>
 
-/*        CONSTANTS        */
-/*        GLOBALS        */
-/*        DEFINITIONS        */
-/*        PROTOTYPES        */
+typedef struct{
+	int puerto_escucha;
+	char* ip_escucha;
+	int tamanio_mem;
+	int tamanio_pagina;
+	int tamanio_swap;
+}_muse_ini;
+
+_muse_ini muse_config;
+t_config* muse_ini;
 
 int main(void);
 

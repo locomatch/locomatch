@@ -19,7 +19,8 @@ void init_logger(){
 
 void init_server(){
 
-	server_socket = iniciar_servidor("127.0.0.1", PUERTO);
+	cargar_datos_muse();
+	server_socket = iniciar_servidor(muse_config.ip_escucha, muse_config.puerto_escucha);
 	if(server_socket == -1) exit(-1);
 
 	clientes = list_create();
@@ -70,4 +71,13 @@ void manage_operation(int client_fd){
 			break;
 	}
 
+}
+
+void cargar_datos_muse(){
+	muse_ini = config_create("muse.ini");
+	muse_config.puerto_escucha = config_get_int_value(muse_ini,"LISTEN_PORT");
+	muse_config.ip_escucha = config_get_string_value(muse_ini,"LISTEN_IP");
+	muse_config.tamanio_mem = config_get_int_value(muse_ini,"MEMORY_SIZE");
+	muse_config.tamanio_pagina = config_get_int_value(muse_ini,"PAGE_SIZE");
+	muse_config.tamanio_swap = config_get_int_value(muse_ini,"SWAP_SIZE");
 }
