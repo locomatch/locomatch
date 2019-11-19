@@ -14,8 +14,15 @@ typedef struct{
 	int tamanio_swap;
 }_muse_ini;
 
+typedef struct {
+	t_link_element *head;
+	int elements_count;
+} t_list;
+
 _muse_ini muse_config;
 t_config* muse_ini;
+t_log* logger;
+int server_socket;
 
 int main(void);
 
