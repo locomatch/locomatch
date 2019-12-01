@@ -30,16 +30,11 @@ typedef struct {
 } t_burst;
 
 typedef struct {
-	pid_t pid;
-	char* name;
-} t_pcb;
-
-typedef struct {
 	int socket;
 	pid_t tid;
 	t_state state;
-	t_pcb *pcb;
 	t_burst *time;
+	t_list *joined;
 } t_tcb;
 
 typedef struct {
@@ -60,6 +55,7 @@ typedef struct {
 	char* id;
 	int valor;
 	t_list *blocked;
+	pthread_mutex_t block_mutex;
 } t_semaforo;
 
 /*        GLOBALS        */
@@ -86,11 +82,19 @@ void init_semaforos();
 void *schedule_long_term(void *arg);
 void *schedule_short_term(void *arg);
 void schedule_next_for(t_program * program);
+void suse_wait(int tid, char* sem_name, t_program *program);
+void suse_signal(int tid, char* sem_name, t_program *program);
+void block(t_semaforo *semaforo, t_tcb *exec);
+void wakeup(t_semaforo *semaforo);
+void suse_join(int tid, t_program *program);
+void suse_close(int tid, t_program *program);
+void unjoin_exec(t_program *program);
 void change_exec_tcb(t_program *program, t_tcb *shortest_tcb, int shortest_estimate);
 void notify_program(t_program *program, op_code codigo);
 int get_estimate(t_burst *burst);
 void set_new_timings(t_burst *timings);
 t_tcb *get_new_tcb();
+t_semaforo *get_semaforo(char* sem_name);
 void move_tcb_to(t_tcb *tcb, int state);
 int find_tcb_pos(t_list *list, pid_t tid, int socket);
 int find_program_pos(int socket);

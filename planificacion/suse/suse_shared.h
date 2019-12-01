@@ -43,5 +43,6 @@ t_configData *configData;
 
 void print_malloc_error(char* element);
 void print_pthread_create_error(char* element);
+void print_suse_not_exec(int program_id, int tid);
 
 #endif /* SUSE_SHARED_H_ */
