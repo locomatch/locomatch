@@ -37,6 +37,7 @@ typedef struct {
 
 bool endsuse;
 t_log *logger;
+t_log *metricsLog;
 t_configData *configData;
 
 /*        PROTOTYPES        */
