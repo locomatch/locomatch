@@ -7,11 +7,12 @@
 #include <commons/config.h>
 #include <unistd.h>
 
+/*
 void muse_alloc(int tam){
 	segment_t* segment = create_segment;
 
-
 }
+*/
 
 page_t* create_page(){
 	page_t* page = (page_t*)malloc(sizeof(page_t));
@@ -25,6 +26,8 @@ page_t* create_page(){
 
 page_info_t* create_page_info(){
   	page_info_t* page_info = (page_info_t*)malloc(sizeof(page_info_t));
+// Numero de pagina? Index?
+	page_info->isFree = true;
 	page_info->next = NULL;
 	page_info->prev = NULL;
   	return page_info;
@@ -105,7 +108,7 @@ page_info_t* insert_page(char* table_name, page_t* page){
 int find_free_page(segment_t* segment){
 	page_info_t* temp_page = segment->pages;
 		for(int i = 0; i < NUMBER_OF_PAGES; i++){ 
-			if(!page_is_on_use()){
+			if(page_is_free(temp_page){ //No entiendo el error
 				return i; //RETORNA LA PRIMERA PAGINA VACIA
 			}
 		temp_page = temp_page->next;
@@ -113,6 +116,19 @@ int find_free_page(segment_t* segment){
 		
 	}
 
-void page_is_on_use(page_info_t* page){
-	return page->(!isFree); //SERIA EL OPUESTO DE LA VARIABLE
+void page_is_free(page_info_t* page){
+	bool rta = page->isFree
+	return rta;
+}
+
+segment_t* find_segment(int num){
+	segment_t* temp = SEGMENT_TABLE;
+
+	while(temp != NULL){
+		if(strcmp(temp->seg_num, num) == 0){
+			return temp;
+		}
+		temp = temp->next
+	}
+	return temp; //SI NO EXISTE SERA NULL
 }

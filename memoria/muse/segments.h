@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 typedef struct{
-  char* value;
+  char* value; //MMMM mepa cualqueira esto
 }page_t;
 
 typedef struct heapMetadata{
@@ -20,7 +20,7 @@ typedef struct heapMetadata{
 typedef struct page_info{
   int num_pag;
   page_t* page_ptr;
-  bool isFree;
+  bool isFree; //Es mejor usar 0/1?
   struct page_info* next;
   struct page_info* prev;
 }page_info_t;

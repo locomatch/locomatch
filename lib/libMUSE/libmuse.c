@@ -2,16 +2,23 @@
 #include "sockets.h"
 
 
-int id_global; //Seria algo global?
-char sep[2] = {' '};
+//int id_global; //Seria algo global?
+//char sep[2] = {' '};
+
+int socket_cliente = 0;
 
 
 //NO le di uso al ID. Deberia usarlo dentro del paquete para que MUSE detecte quien es?
 //Me parece que al crear la conexion correctamente se le deberia enviar los datos para identificar al proceso
 int muse_init(int id, char* ip, int puerto){
-    //id_global = id;
+printf("Conectando a Muse... \nIP: %s \nPUERTO: %i", ip, puerto);
     socket_cliente = crear_conexion_con_servidor(ip, puerto);
-    return socket_cliente;
+    if(socket_cliente == 0){
+        return -1;
+    }
+    else{
+        return 0;
+    }
 
 // * @return Si pasa un error, retorna -1. Si se inicializó correctamente, retorna 0.
 }
@@ -24,8 +31,17 @@ void muse_close(){
 
 uint32_t muse_alloc(uint32_t tam){
 
-    enviar_mensaje(MUSE_ALLOC, tam, socket_cliente);
+//    enviar_mensaje(MUSE_ALLOC, tam, socket_cliente);
 
+	t_paquete *create = crear_paquete(MUSE_ALLOC);
+	agregar_a_paquete(create, &tam, sizeof(uint32_t));
+	enviar_paquete(create, socket_cliente);
+
+    recibir_mensaje(socket_cliente);
+
+    char* rta = recibir_mensaje(int socket_cliente);
+    printf("Direccion de la memoria reservada:");
+    return rta;
 
 // * @return La dirección de la memoria reservada.
 }
@@ -33,76 +49,83 @@ uint32_t muse_alloc(uint32_t tam){
 
 void muse_free(uint32_t dir){
 //Tengo que cambiar el formato de dir?
-    enviar_mensaje(MUSE_FREE, dir, socket_cliente);
+//    enviar_mensaje(MUSE_FREE, dir, socket_cliente);
+
+	t_paquete *create = crear_paquete(MUSE_FREE);
+	agregar_a_paquete(create, &dir, sizeof(uint32_t));
+	enviar_paquete(create, socket_cliente);
+//No pide RESPUESTA. SE la doy igual?
+    char* rta = recibir_mensaje(socket_cliente);
+    return rta; //0 o -1
+
 }
 
 
+
 int muse_get(void* dst, uint32_t src, size_t n){
-    char* buffer;
-    int tot_len = strlen(dst) + strlen(src) + strlen(n) + 2;
 
-    buffer = malloc(tot_len);
-    strcpy(buffer, dst);
-    strcat(buffer, sep);
-    strcat(buffer, src);
-    strcat(buffer, sep);
-    strcat(buffer, n);
+	t_paquete *create = crear_paquete(MUSE_GET);
+	agregar_a_paquete(create, &dst, sizeof(dst)); //ACA HAY ALGO MAL
+    agregar_a_paquete(create, &src, sizeof(uint32_t));
+    agregar_a_paquete(create, &n, sizeof(uint32_t));
+	enviar_paquete(create, socket_cliente);
 
-    enviar_mensaje(MUSE_GET, buffer, socket_cliente);
+    char* rta = recibir_mensaje(socket_cliente);
+    return rta; //0 o -1
+
+
 //@return Si pasa un error, retorna -1. Si la operación se realizó correctamente, retorna 0.
 }
 
 
 int muse_cpy(uint32_t dst, void* src, int n){
-    char* buffer;
-    int tot_len = strlen(dst) + strlen(src) + strlen(n) + 2;
+	t_paquete *create = crear_paquete(MUSE_CPY);
+	agregar_a_paquete(create, &dst, sizeof(uint32_t));
+    agregar_a_paquete(create, &src, sizeof(src)); //ACA HAY ALGO MAL
+    agregar_a_paquete(create, &n, sizeof(int));
+	enviar_paquete(create, socket_cliente);
 
-    buffer = malloc(tot_len);
-    strcpy(buffer, dst);
-    strcat(buffer, sep);
-    strcat(buffer, src);
-    strcat(buffer, sep);
-    strcat(buffer, n);
-
-    enviar_mensaje(MUSE_CPY, buffer, int socket_cliente);
+    char* rta = recibir_mensaje(socket_cliente);
+    return rta; //0 o -1
 //@return Si pasa un error, retorna -1. Si la operación se realizó correctamente, retorna 0.
 }
 
 
 
 uint32_t muse_map(char *path, size_t length, int flags){
-    char* buffer;
-    int tot_len = strlen(dst) + strlen(src) + strlen(n) + 2;
+	t_paquete *create = crear_paquete(MUSE_MAP);
+	agregar_a_paquete(create, &path, sizeof(uint32_t));
+    agregar_a_paquete(create, &lenght, sizeof(size_t));
+    agregar_a_paquete(create, &flags, sizeof(int));
+	enviar_paquete(create, socket_cliente);
 
-    buffer = malloc(tot_len);
-    strcpy(buffer, path);
-    strcat(buffer, sep);
-    strcat(buffer, length);
-    strcat(buffer, sep);
-    strcat(buffer, flasg);
-
-    enviar_mensaje(MUSE_MAP, buffer, int socket_cliente);
+    char* rta = recibir_mensaje(socket_cliente);
+    printf("Posicion de memoria de MUSE mappeada:");
+    return rta; //0 o -1
 //@return Retorna la posición de memoria de MUSE mappeada.
 }
 
 
 int muse_sync(uint32_t addr, size_t len){
-    char* buffer;
-    int tot_len = strlen(dst) + strlen(src) + strlen(n) + 2;
+	t_paquete *create = crear_paquete(MUSE_SYNC);
+	agregar_a_paquete(create, &addr, sizeof(uint32_t));
+    agregar_a_paquete(create, &len, sizeof(size_t));
+	enviar_paquete(create, socket_cliente);
 
-    buffer = malloc(tot_len);
-    strcpy(buffer, addr);
-    strcat(buffer, sep);
-    strcat(buffer, len);
-
-
-    enviar_mensaje(MUSE_SYNC, buffer, int socket_cliente);
+    char* rta = recibir_mensaje(socket_cliente);
+    return rta; //0 o -1
 //@return Si pasa un error, retorna -1. Si la operación se realizó correctamente, retorna 0.
 }
 
 int muse_unmap(uint32_t dir){
-//Tengo que cambiar el formato de dir?
-    enviar_mensaje(MUSE_UNMAP, dir, int socket_cliente);
+	t_paquete *create = crear_paquete(MUSE_UNMAP);
+	agregar_a_paquete(create, &dir, sizeof(uint32_t));
+	enviar_paquete(create, socket_cliente);
+
+    recibir_mensaje(socket_cliente);
+
+    char* rta = recibir_mensaje(socket_cliente);
+    return rta; //0 o -1
 // * @return Si pasa un error, retorna -1. Si la operación se realizó correctamente, retorna 0.
 }
 

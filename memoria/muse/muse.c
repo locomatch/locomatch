@@ -1,4 +1,5 @@
 #include "muse.h"
+#include "segments.h"
 
 #include <stdlib.h>
 #include <commons/log.h>
@@ -12,6 +13,7 @@
 #include <netdb.h>
 #include <signal.h>
 
+
 int main(void) {
 
 	init_logger();
@@ -20,8 +22,7 @@ int main(void) {
 
 	init_server();
 	
-
-	
+	init_memoria();
 
 	exit(EXIT_SUCCESS);
 }
@@ -31,9 +32,19 @@ void init_logger(){
 	logger = log_create("Muse.log", "muse", 1, LOG_LEVEL_DEBUG);
 	log_info(logger, "Logger inicializado");
 }
+void init_memoria(){
+//INICIALIZO MEMORIA PRINCIPAL Y RELLENO CON 0
+  int main_memory_size = muse_config.tamanio_mem;
+  MAIN_MEMORY = malloc(main_memory_size);
+  if(MAIN_MEMORY == NULL) {
+    log_error(logger, "No se pudo alocar espacio para la memoria principal.");
+    return 0;
+  }
+  memset(MAIN_MEMORY, 0, main_memory_size);
+}
 
 void init_server(){
-
+//deberia ir directo al main?
 	cargar_datos_muse();
 	server_socket = iniciar_servidor(muse_config.ip_escucha, muse_config.puerto_escucha);
 	if(server_socket == -1) exit(-1);
@@ -71,11 +82,12 @@ switch (cod_op) {
 	}
 }
 return EXIT_SUCCESS;
+
 }
 
 void cargar_datos_muse(){
 	muse_ini = config_create("muse.ini");
-	muse_config.puerto_escucha = config_get_int_value(muse_ini,"LISTEN_PORT");
+	muse_config.puerto_escucha = config_get_string_value(muse_ini,"LISTEN_PORT");
 	muse_config.ip_escucha = config_get_string_value(muse_ini,"LISTEN_IP");
 	muse_config.tamanio_mem = config_get_int_value(muse_ini,"MEMORY_SIZE");
 	muse_config.tamanio_pagina = config_get_int_value(muse_ini,"PAGE_SIZE");
