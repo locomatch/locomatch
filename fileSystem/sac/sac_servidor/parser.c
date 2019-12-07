@@ -155,7 +155,7 @@ char* parse_input(char* instr_buff){ //aca da error
 
     if(!strcmp(parameters[0],"GETATTR")){
         
-        if(parameters_length != 3){
+        if(parameters_length != 2){
             printf("numero de parametros incorrecto\n");
             kill_args();
             //exec_err_abort(); TODO ver para que sirve y en que biblioteca esta
@@ -178,7 +178,7 @@ char* parse_input(char* instr_buff){ //aca da error
         package->path = parameters[1];
 
         //MODE
-        package->mode = parameters[2];
+        //package->mode = parameters[2];
 
         //printf("\n Datos de paquete:\n instruction: %s\n Table name: %s\n Key: %d\n", package->instruction, package->table_name,package->key);
         char* response = action_getattr(package);

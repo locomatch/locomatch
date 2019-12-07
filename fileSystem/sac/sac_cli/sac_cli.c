@@ -69,7 +69,7 @@ int main (int argc,char *argv[]) {
 
     /*LOG*/
     char* LOGPATH = "sac_cli.log";
-    logger = log_create(LOGPATH, "Sac_servidor", 1, LOG_LEVEL_INFO);
+    logger = log_create(LOGPATH, "Sac_cli", 1, LOG_LEVEL_INFO);
 
     //run client
     struct addrinfo hints;
@@ -140,9 +140,22 @@ int sac_read(char* msg) {
 }
 
 /* sac_getattr obtiene los atributos de un archivo */
-int sac_getattr(char* msg) {
+static int sac_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
     log_info(logger,"Se recibio una instruccion getattr");
+
+    (void) fi;
+    int res = 0;
+    memset(stbuf, 0, sizeof(struct stat));
+    
+    char* msg = malloc(strlen("getattr")+strlen(path)+2);
+    msg[0] = '\0';
+    strcat(msg ,"getattr ");
+    strcat(msg ,path);
+
+    log_info(logger, "El mensaje a enviar es: %s", msg);
+
     sac_send(msg, serverSocket);
+    free(msg);
     return 0;
 }
 

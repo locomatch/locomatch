@@ -25,7 +25,7 @@ typedef struct {
 typedef struct {
     char* instruction;
     char* path;
-    char* mode;
+    //char* mode;
 } package_getattr;
 
 typedef struct {

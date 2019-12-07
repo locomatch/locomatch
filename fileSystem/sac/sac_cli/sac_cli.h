@@ -18,6 +18,7 @@
 #include <fuse.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 /*        CONSTANTS        */
 /*        GLOBALS        */
@@ -29,7 +30,7 @@
 int main(int argc,char *argv[]);
 int sac_open(char* msg);
 int sac_read(char* msg);
-int sac_getattr(char* msg);
+static int sac_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi);
 int sac_mknod(char* msg);
 int sac_mkdir(char* msg);
 int sac_write(char* msg);
