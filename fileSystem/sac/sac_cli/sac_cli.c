@@ -163,8 +163,37 @@ static int sac_getattr(const char *path, struct stat *stbuf, struct fuse_file_in
     read(serverSocket, response_buff, 100);
 
     printf("el response_buff dice esto: %s\n", response_buff);
-    
+
     //cargar stbuf dependiendo de la respuesta
+    if(strcmp(response_buff,"-ENOENT") == 0) {
+        //retornar el error
+        log_info(logger, "No se encontró el archivo");
+        return -ENOENT;
+    } else if (strcmp(response_buff,"S_IFDIR") == 0) {
+        //es un directorio
+        log_info(logger, "Se encontro un directorio");
+        stbuf->st_mode = S_IFDIR | 0755;
+        stbuf->st_nlink = 2;
+        return 0;
+    } else {
+        //es un archivo regular (o hubo algun error al recibir la respuesta de sac_server a getattr)
+        //parseo response_buff para que me quede un array con [S_IFREG,123223] pasar el segundo valor a numeros porque esta en char
+        char** response_array = string_split(response_buff, " ");
+
+        if(strcmp(response_buff,"S_IFREG") == 0) {
+            //es un archivo regular
+            int file_size = atoi(response_array[1]);
+
+            stbuf->st_mode = S_IFREG | 0777;
+            stbuf->st_nlink = 1;
+            stbuf->st_size = file_size;
+            return 0;
+        } else {
+            //hubo un error
+            log_error(logger, "Hubo algun error al regresar getattr");
+            return -ENOENT;
+        }
+    }
 
     return 0;
 }
