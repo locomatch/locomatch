@@ -25,12 +25,15 @@ t_config* config;
 int server_socket;
 
 pthread_t socket_thread;
+pthread_t metrics_thread;
 
 /*        PROTOTYPES        */
 
 int main(void);
 void init_logger();
 void init_suse();
+void init_metrics();
+void *timed_metrics(void *arg);
 t_config* generar_config();
 void cargar_config();
 void init_server();

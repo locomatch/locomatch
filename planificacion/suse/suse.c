@@ -32,7 +32,33 @@ void init_suse(){
 	init_semaforos();
 	init_server();
 
+	init_metrics();
+
 	log_info(logger, "[SUSE] Inicializacion Completa");
+}
+
+void init_metrics(){
+
+	metricsLog = log_create("metrics.log", "metrics", 1, LOG_LEVEL_DEBUG);
+
+	if (pthread_create (&metrics_thread, NULL, &timed_metrics, NULL) != 0){
+		print_pthread_create_error("metrics_thread");
+		exit(-1);
+	}
+
+	pthread_mutex_init(&metrics_mutex, NULL);
+}
+
+void *timed_metrics(void *arg){
+
+	while(!endsuse){
+
+		sleep(configData->metrics_timer);
+
+		log_metrics();
+	}
+
+	pthread_exit(EXIT_SUCCESS);
 }
 
 t_config* generar_config(){
@@ -103,6 +129,7 @@ void init_server(){
 	if(server_socket == -1) exit(-1);
 
 	clientes = list_create();
+	pthread_mutex_init(&clientes_mutex, NULL);
 
 	if (pthread_create (&socket_thread, NULL, &wait_for_client, NULL) != 0){
 		print_pthread_create_error("socket_thread");
@@ -134,6 +161,7 @@ void join_threads(){
 	shutdown(server_socket,0);
 
 	pthread_join(socket_thread, NULL);
+	pthread_join(metrics_thread, NULL);
 	pthread_join(long_term_scheduler, NULL);
 
 	t_program *cliente;
