@@ -33,7 +33,7 @@ typedef struct sac_header_t {
 
 // NODO:
 typedef struct sac_file_t {
-    uint8_t state;
+    uint8_t state; // 0:borrado 1:ocupado 2:directorio
     unsigned char fname[MAX_FILENAME_LENGTH];
     uint32_t parent_block;//bloque padre
     uint32_t filesize;

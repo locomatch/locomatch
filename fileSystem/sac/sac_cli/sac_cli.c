@@ -144,9 +144,9 @@ static int sac_getattr(const char *path, struct stat *stbuf, struct fuse_file_in
     log_info(logger,"Se recibio una instruccion getattr");
 
     (void) fi;
-    int res = 0;
+    //int res = 0;
     memset(stbuf, 0, sizeof(struct stat));
-    
+
     char* msg = malloc(strlen("getattr")+strlen(path)+2);
     msg[0] = '\0';
     strcat(msg ,"getattr ");
@@ -156,6 +156,16 @@ static int sac_getattr(const char *path, struct stat *stbuf, struct fuse_file_in
 
     sac_send(msg, serverSocket);
     free(msg);
+
+    //TODO ver como obtener el responce para cargar la estructura que tiene que devolver esta garompa
+    char* response_buff = malloc(100);
+    response_buff[0] = '\0';
+    read(serverSocket, response_buff, 100);
+
+    printf("el response_buff dice esto: %s\n", response_buff);
+    
+    //cargar stbuf dependiendo de la respuesta
+
     return 0;
 }
 

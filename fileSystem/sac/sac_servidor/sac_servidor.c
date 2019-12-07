@@ -53,14 +53,63 @@ char* action_getattr(package_getattr* package) {
     
     printf("El path recibido es: %s\n", package->path);
 
-    //buscar el archivo
-    if (package->path != '\\') {
-        search_for_file(package->path);
-    }
+    if (strcmp(package->path, "/") == 0) {
+        //devolver lo que corresponda al directorio raiz 
+        log_info(logger, "el archivo encontrado es el directorio raiz");
+        char* response = "S_IFDIR";
+        return response;   
+    } 
 
+    //buscar el archivo
+    int file_node_number;
+    file_node_number = search_for_file(package->path);
     //ver que info saco de ahi? que luego voy a cargar en sac-cli stbuf
-    
-    return "ja";
+
+    if(file_node_number == 0) { //no existe
+        //tengo que devolver -ENOENT
+        char* response = "-ENOENT";
+        return response;
+    } else {
+        //Si existe y es un directorio stbuff.st_mode = S_IFDIR | 0755
+        //Si existe y es un archivo comun stbuff.st_mode = S_IFREG | 0777 y el stbuff.st_size
+
+        //chequeo si es un directorio o un archivo regular
+        FILE* disco = fopen("disco.bin", "r+");
+
+        int offset = file_node_number * BLOCK_SIZE;
+        fseek(disco, offset, SEEK_SET);
+
+        struct sac_file_t file_node;
+
+        fread(&file_node, sizeof(struct sac_file_t), 1, disco);
+
+        if(file_node.state == 0 || file_node.state == 1) {
+            //entonces es un archivo regular
+            log_info(logger, "el archivo encontrado es un archivo regular (puede estar borrado)");
+            int file_size = file_node.filesize;
+            
+            char* file_size_s; 
+            sprintf(file_size_s,"%d",file_size);
+            char* response = malloc(strlen("S_IFDIR")+strlen(file_size_s)+1);
+            response[0] = '\0';
+            strcat(response ,"S_IFDIR ");
+            strcat(response ,file_size_s);
+
+            close(disco);
+            return response;
+        } else if (file_node.state == 2) {
+            //entonces es un directorio
+            log_info(logger, "el archivo encontrado es un directorio");
+            char* response = "S_IFDIR";
+            close(disco);
+            return response;
+        } else {
+            log_error(logger, "el estado del archivo encontrado es incorrecto");
+            close(disco);
+            char* response = "-ENOENT";
+            return response;
+        }
+    }
 }
 
 /* action_mknod crea el nodo de un archivo */
