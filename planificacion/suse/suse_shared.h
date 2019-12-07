@@ -13,7 +13,9 @@
 #include <commons/collections/list.h>
 #include <linuse/sockets/sockets.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <sys/time.h>
+#include <float.h>
 #include "suse_errors.h"
 
 /*        CONSTANTS        */

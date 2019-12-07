@@ -129,6 +129,7 @@ void init_server(){
 	if(server_socket == -1) exit(-1);
 
 	clientes = list_create();
+	pthread_mutex_init(&clientes_mutex, NULL);
 
 	if (pthread_create (&socket_thread, NULL, &wait_for_client, NULL) != 0){
 		print_pthread_create_error("socket_thread");
