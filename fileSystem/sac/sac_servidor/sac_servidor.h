@@ -13,6 +13,8 @@
 
 #include <string.h>
 #include <commons/string.h>
+#include <commons/bitarray.h>
+#include <time.h>
 
 /*        CONSTANTS        */
 /*        GLOBALS        */
@@ -59,5 +61,8 @@ char* action_readdir(package_readdir* package);
 int search_for_file(char* path);
 char** parse_path(char* path);
 int find_node(char** path_array);
+int check_node_state(int directory_node_number);
+int find_free_block(int place); // place = 0 node table ; place = 1 data blocks
+void set_block_as_occupied(int block_number);
 
 #endif /* SAC_SERVIDOR_H_ */

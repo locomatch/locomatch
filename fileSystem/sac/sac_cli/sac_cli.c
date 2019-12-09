@@ -157,7 +157,7 @@ static int sac_getattr(const char *path, struct stat *stbuf, struct fuse_file_in
     sac_send(msg, serverSocket);
     free(msg);
 
-    //TODO ver como obtener el responce para cargar la estructura que tiene que devolver esta garompa
+    //obtener el responce para cargar la estructura que tiene que devolver esta garompa
     char* response_buff = malloc(100);
     response_buff[0] = '\0';
     read(serverSocket, response_buff, 100);
@@ -199,9 +199,49 @@ static int sac_getattr(const char *path, struct stat *stbuf, struct fuse_file_in
 }
 
 /* sac_mknod crea el nodo de un archivo */
-int sac_mknod(char* msg) {
+static int sac_mknod(char* path, mode_t mode, dev_t rdev) {
+
+    //vamos a asumir que el archivo no tiene permisos, o mejor dicho que todos tienen permisos para todos los archivos
+    //mode_t mode hace referencia a estos permisos asique no vamos a usarlo. (y al tipo de archivo que vamos a obviar)
+    //dev_t rdev hace referencia al dispositivo que contiene el archivo? no vamos a usarlo tampoco
+
     log_info(logger,"Se recibio una instruccion mknod");
+
+    char* msg = malloc(strlen("mknod ")+strlen(path)+2);
+    msg[0] = '\0';
+    strcat(msg ,"getattr ");
+    strcat(msg ,path);
+
+    log_info(logger, "El mensaje a enviar es: %s", msg);
+
     sac_send(msg, serverSocket);
+    free(msg);
+
+    //obtener el responce para cargar la estructura que tiene que devolver esta garompa
+    char* response_buff = malloc(100);
+    response_buff[0] = '\0';
+    read(serverSocket, response_buff, 100);
+
+    printf("el response_buff dice esto: %s\n", response_buff);
+
+    if(strcmp(response_buff,"EEXIST") == 0) {
+        //retornar el error
+        log_info(logger, "el archivo que quiere crear ya existe");
+        return EEXIST;
+    } else if (strcmp(response_buff,"ENAMETOOLONG") == 0) {
+        //retornar el error
+        log_info(logger, "el archivo que quiere crear ya existe");
+        return ENAMETOOLONG;
+    } else if (strcmp(response_buff,"ENOENT") == 0) {
+        //retornar el error
+        log_info(logger, "el directorio donde quiere crear el archivo no existe");
+        return ENOENT;
+    } else if (strcmp(response_buff,"ENOTDIR") == 0) {
+        //retornar el error
+        log_info(logger, "el directorio donde quiere crear el archivo no es un directorio");
+        return ENOTDIR;
+    }
+
     return 0;
 }
 

@@ -115,7 +115,110 @@ char* action_getattr(package_getattr* package) {
 /* action_mknod crea el nodo de un archivo */
 char* action_mknod(package_mknod* package) {
     log_info(logger,"Se recibio una accion mknod");
-    return "jo";
+
+    //TODO buscar si no existe ya ese archivo -> si existe ver que retornar, si no existe sigo
+    //buscar el archivo
+    int file_node_number;
+    file_node_number = search_for_file(package->path);
+
+    if(file_node_number != 0) {
+        log_info(logger, "el archivo que quiere crear ya existe");
+        char* response = "EEXIST";
+        return response;
+    }
+    
+    //buscar si existe el directorio donde quiero crearlo -> si no existe retornar el
+    // error correspondiente, si existe guardar el nro de bloque de este directorio (ver que
+    // hacer cuando este es 0) Tambien confirmar que sea un directorio.
+    
+    int directory_node_number;
+
+    //obtener el path del directorio nomas
+    char** path_array = string_split(package->path, "/");
+
+    int path_array_length = 0;
+    while (path_array[path_array_length] != NULL){
+        path_array_length++;
+    }
+
+    //char* file_name = path_array[path_array_length - 1];
+    char* file_name = malloc(sizeof(char) * path_array_length + 1);
+    file_name[0] = '\0';
+    strcat(file_name , path_array[path_array_length - 1]);
+
+    int file_name_length = strlen(file_name);
+
+    //control del largo del filename
+    if(file_name_length > MAX_FILENAME_LENGTH) {
+        log_info(logger, "el largo del nombre del archivo es mayor al permitido");
+        char* response = "ENAMETOOLONG";
+        return response;
+    }
+    
+    if(path_array_length == 1) {
+        //el directorio es el directorio raiz
+        directory_node_number = 0;
+    } else {
+        //crear path auxiliar para buscar el directorio
+
+        char* aux_path = malloc(strlen(package->path) - file_name_length + 1);
+        aux_path[0] = '\0';
+        strcat(aux_path ,"/");
+
+        int aux_path_length = path_array_length - 1;
+        for(int i = 0; i < aux_path_length; i++) {
+            strcat(aux_path ,path_array[i]);
+            strcat(aux_path ,"/");
+        }
+
+        printf("El aux_path (path del directorio) es: %s\n", aux_path);
+
+        directory_node_number = search_for_file(aux_path);
+
+        if(directory_node_number == 0) {
+            log_info(logger, "el directorio donde quiere crear el archivo no existe");
+            char* response = "ENOENT";
+            return response;
+        }
+
+        //el nodo del directorio existe pero hay que comprobar que sea un directorio
+        int directory_state = check_node_state(directory_node_number);
+
+        if(directory_state != 2) {
+            log_info(logger, "el directorio donde quiere crear el archivo no es un directorio");
+            char* response = "ENOTDIR";
+            return response;
+        }
+    }
+
+    //buscar un bloque libre (dentro de la tabla de nodos)
+    int free_block = find_free_block(0); // 0 -> node table
+
+    //cambio el bitmap para que lo muestre como ocupado
+    set_block_as_occupied(free_block);
+
+    //cargar un nodo con los datos del nuevo archivo y escribirlo en la tabla de nodos
+    struct sac_file_t file_node;
+    file_node.state = 1; //ocupado
+    memcpy(file_node.fname, file_name, file_name_length);
+    //file_node.fname = file_name;
+    file_node.parent_block = directory_node_number;
+    file_node.filesize = 0;
+    file_node.created = time(NULL);
+    file_node.modified = time(NULL);
+    file_node.blocks[0] = '\0';
+
+    //hacer fopen fwrite y fclose del disco
+    FILE* disco = fopen("disco.bin", "r+");
+
+    int offset = BLOCK_SIZE * free_block;
+    fseek(disco, offset, SEEK_SET); //en la posicion del bloque libre
+
+    fwrite(&file_node, BLOCK_SIZE, 1, disco);
+
+    fclose(disco);
+
+    return "0";
 }
 
 /* action_mkdir crea un directorio */
@@ -348,3 +451,100 @@ int find_node(char** path_array) {
 
 }
 
+int check_node_state(int directory_node_number) {
+
+    FILE* disco = fopen("disco.bin", "r+");
+
+    int offset = directory_node_number * BLOCK_SIZE;
+    fseek(disco, offset, SEEK_SET);
+
+    struct sac_file_t check_node;
+    fread(&check_node, sizeof(struct sac_file_t), 1, disco);
+
+    int state = check_node.state;
+
+    close(disco);
+
+    return state;
+}
+
+int find_free_block(int area) {
+
+    //defino donde esta el bitmap (es el segundo bloque)
+    int bitmap_offset = BLOCK_SIZE;
+    //TODO ver que el bitmap esta definido en el header del fs -> tendria que leerlo de ahi calcular donde esta y seguir
+
+    FILE* disco = fopen("disco.bin", "r+"); //TODO ver con que permisos lo tengo que abrir
+    //leer el bitmap
+    fseek(disco, bitmap_offset, SEEK_SET);
+
+    char* bitmap = malloc(BLOCK_SIZE + 1);
+    fread(bitmap ,sizeof(char) ,BLOCK_SIZE ,disco); //TODO si cambia el tamaño del bitmap tengo que reemplazar BLOCK_SIZE por el tamaño del bitmap
+    fclose(disco);
+
+    //defino segun el place el area del bitmap donde voy a buscar (la parte que corresponde a la tabla de 
+    //nodos o la parte que corresponde a los bloques de datos)
+    //TODO si los tamaños varian ver como ajustar
+    int area_start;
+    int area_end;
+
+    if(area == 0) {
+        //busco en la tabla de nodos
+        area_start = 2;
+        area_end = 1025;
+    } else if (area == 1) {
+        //busco en los bloques de datos
+        area_start = 1026;
+        area_end = 32767;
+    }
+
+    //recorro el bitmap en esa seccion buscando un 0, si lo encuentro devuelvo su posición, sino devuelvo 0
+    for(int i = area_start; i<=area_end ;i++) {
+        if(bitarray_test_bit(bitmap, i)){ //recorro todo el bitmap buscando un 0 if(bitmap[i]=='0')
+            free(bitmap);
+            return i; //devuelvo el indice del primer bloque libre que encuentro -> es el numero de bloque libre
+        }
+    }
+
+    //si no encontró un bloque libre
+    free(bitmap);
+    log_error(logger,"No se encontraron bloques libres");
+    return -1;
+}
+
+void set_block_as_occupied(int block_number) {
+    
+    //defino donde esta el bitmap (es el segundo bloque)
+    int bitmap_offset = BLOCK_SIZE;
+    //TODO ver que el bitmap esta definido en el header del fs -> tendria que leerlo de ahi calcular donde esta y seguir
+
+    FILE* disco = fopen("disco.bin", "r+"); //TODO ver con que permisos lo tengo que abrir
+    //leer el bitmap
+    fseek(disco, bitmap_offset, SEEK_SET);
+
+    char* bitmap = malloc(BLOCK_SIZE + 1);
+    fread(bitmap, sizeof(char), BLOCK_SIZE, disco); //TODO si cambia el tamaño del bitmap tengo que reemplazar BLOCK_SIZE por el tamaño del bitmap
+
+    //bitmap[block_number] = '1';
+    bitarray_set_bit(bitmap, block_number);
+
+    fwrite(bitmap, sizeof(char), BLOCK_SIZE, disco); //TODO ver de estar haciendo bien el read write
+    fclose(disco);
+    free(bitmap);
+    return;
+}
+
+/*
+void set_block_as_free(int block_number) {
+         
+    FILE* bitmap_file = fopen(bitmap_path,"r+");
+    char *bitmap = malloc(block_amount+2);
+    fread(bitmap, sizeof(char),block_amount, bitmap_file);
+    fseek(bitmap_file, 0, SEEK_SET);
+    bitmap[block_number] = '0';
+    fwrite(bitmap, sizeof(char), block_amount, bitmap_file);
+    fclose(bitmap_file);
+    free(bitmap);
+    return;
+}
+*/
