@@ -19,6 +19,12 @@
 #include "suse_errors.h"
 
 /*        CONSTANTS        */
+
+typedef enum {
+	TIMED,
+	CLOSE
+}t_metrics;
+
 /*        DEFINITIONS        */
 
 typedef struct {

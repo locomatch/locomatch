@@ -55,7 +55,7 @@ void *timed_metrics(void *arg){
 
 		sleep(configData->metrics_timer);
 
-		log_metrics();
+		log_metrics(NULL);
 	}
 
 	pthread_exit(EXIT_SUCCESS);
@@ -165,10 +165,12 @@ void join_threads(){
 	pthread_join(long_term_scheduler, NULL);
 
 	t_program *cliente;
+	pthread_mutex_lock(&clientes_mutex);
 	for(int i = 0; i < list_size(clientes); i++){
 		cliente = list_get(clientes, i);
 		pthread_join(cliente->short_scheduler, NULL);
 	}
+	pthread_mutex_unlock(&clientes_mutex);
 }
 
 void end_suse(){

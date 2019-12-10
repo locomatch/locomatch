@@ -48,14 +48,14 @@ typedef struct {
 	pthread_t short_scheduler;
 	pthread_mutex_t main_loaded_mutex;
 	sem_t tcb_counter;
+	bool close;
 } t_program;
 
 typedef struct {
 	char* id;
 	int valor;
 	t_list *blocked;
-	pthread_mutex_t block_mutex;
-	pthread_mutex_t valor_mutex;
+	pthread_mutex_t sem_mutex;
 } t_semaforo;
 
 /*        GLOBALS        */
@@ -68,7 +68,7 @@ t_list *semaforos;
 
 t_list *newList;
 t_list *blockedList;
-t_queue *exitQueue;
+t_list *exitList;
 
 pthread_mutex_t state_list_mutex;
 pthread_mutex_t metrics_mutex;
@@ -83,7 +83,7 @@ void init_semaforos();
 void *schedule_long_term(void *arg);
 void *schedule_short_term(void *arg);
 void schedule_next_for(t_program * program);
-void wait_for_wakeup(t_program *program);
+void wait_for_threads(t_program *program);
 void suse_wait(int tid, char* sem_name, t_program *program);
 void suse_signal(int tid, char* sem_name, t_program *program);
 void block(t_semaforo *semaforo, t_tcb *exec);
@@ -94,8 +94,12 @@ void unjoin_exec(t_program *program);
 void change_exec_tcb(t_program *program, t_tcb *shortest_tcb, int shortest_estimate);
 void notify_program(t_program *program, op_code codigo);
 void main_exec_signal(t_tcb *tcb);
-int get_estimate(t_burst *burst);
-void set_new_timings(t_burst *timings);
+float get_estimate(t_burst *burst);
+float get_estimate_with_burst(t_burst *burst, float last_burst);
+void set_state_start_timing(t_state state, t_burst *timings);
+void set_new_timings_for(t_state state, t_burst *timings);
+float get_last_burst_for(t_state state, t_burst *timings);
+float get_total_for(t_state state, t_burst *timings);
 t_tcb *get_new_tcb();
 t_semaforo *get_semaforo(char* sem_name);
 void move_tcb_to(t_tcb *tcb, int state);
@@ -106,8 +110,8 @@ t_program *get_program(int socket);
 int get_program_id(int socket);
 void program_remove_tcb_from_state(int socket, int tid, int state);
 void program_add_tcb_to_state(t_tcb *tcb, int state);
-void log_metrics();
-float get_exec_percentage(t_program *program);
+void log_metrics(t_tcb *tcb);
+float get_exec_percentage(t_program *program, int tid);
 int get_new_list_size_for(t_program *program);
 int get_blocked_list_size_for(t_program *program);
 
@@ -123,5 +127,6 @@ void destroy_program(t_program *program);
 void destroy_scheduler(pthread_t *scheduler);
 void destroy_lists();
 void destroy_mutexes();
+void list_remove_and_destroy_all_tcb_from_program(t_list *lista, int socket);
 
 #endif /* SUSE_SCHEDULER_H_ */
