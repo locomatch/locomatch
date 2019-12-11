@@ -133,21 +133,16 @@ void *schedule_short_term(void *arg){
 	pthread_exit(EXIT_SUCCESS);
 }
 
-// Planifica el siguiente hilo con SJF
+// Planifica el siguiente hilo con SJF utilizando estimacion
 void schedule_next_for(t_program *program){
 
 	start:
 	pthread_mutex_lock(&state_list_mutex);
+
 	if(list_size(program->ready) == 0){
 		if(program->exec == NULL){
 			wait_for_threads(program);
 			goto start;
-		}
-		else{
-			log_debug(logger, "[ProgramID: %d] Exec is alone. Continue.", program->id); // TODO BORRAR
-			pthread_mutex_unlock(&state_list_mutex);
-
-			goto notify;
 		}
 	}
 
@@ -175,12 +170,19 @@ void schedule_next_for(t_program *program){
 	}
 
 	if(best_pos != -1) tcb = list_get(program->ready, best_pos);
+	else{
+		tcb = program->exec;
+		set_new_timings_for(EXEC, program->exec->time);
+		set_state_start_timing(EXEC, program->exec->time);
+	}
+
+	tcb->time->last_estimate = best_estimate;
 
 	pthread_mutex_unlock(&state_list_mutex);
 
-	if(best_pos != -1) change_exec_tcb(program, tcb, best_estimate);
+	if(best_pos != -1) change_exec_tcb(program, tcb);
 	log_debug(logger, "[ProgramID: %d] Choosen Exec tid: %d", program->id, program->exec->tid); //
-	notify:
+
 	notify_program(program, SUSE_SCHEDULE_NEXT);
 }
 
@@ -316,14 +318,12 @@ void unjoin_exec(t_program *program){
 	}
 }
 
-void change_exec_tcb(t_program *program, t_tcb *shortest_tcb, int shortest_estimate){
+void change_exec_tcb(t_program *program, t_tcb *shortest_tcb){
 
 	if(program->exec != NULL){
 
 		move_tcb_to(program->exec, READY);
 	}
-
-	shortest_tcb->time->last_estimate = shortest_estimate;
 
 	move_tcb_to(shortest_tcb, EXEC);
 
@@ -385,12 +385,12 @@ void set_new_timings_for(t_state state, t_burst *timings){
 		case READY:{
 			float difference = 0;
 			gettimeofday(&timings->ready_end, NULL);
-			difference = (timings->ready_end.tv_sec - timings->ready_start.tv_sec) * 1000.0f + (timings->ready_end.tv_usec - timings->ready_start.tv_usec) / 1000.0f;
+			difference = get_ms_difference_between(&timings->ready_start, &timings->ready_end);
 			timings->total_ready += difference;}
 			break;
 		case EXEC:
 			gettimeofday(&timings->exec_end, NULL);
-			timings->last_burst = (timings->exec_end.tv_sec - timings->exec_start.tv_sec) * 1000.0f + (timings->exec_end.tv_usec - timings->exec_start.tv_usec) / 1000.0f;
+			timings->last_burst = get_ms_difference_between(&timings->exec_start, &timings->exec_end);
 			timings->total_exec += timings->last_burst;
 			break;
 		default:
@@ -400,18 +400,16 @@ void set_new_timings_for(t_state state, t_burst *timings){
 
 float get_last_burst_for(t_state state, t_burst *timings){
 
-	struct timeval *now = malloc(sizeof(struct timeval));
+	struct timeval *now = get_time_now();
 
 	float burst = 0;
 
 	switch(state){
 		case READY:
-			gettimeofday(now, NULL);
-			burst = (now->tv_sec - timings->ready_start.tv_sec) * 1000.0f + (now->tv_usec - timings->ready_start.tv_usec) / 1000.0f;
+			burst = get_ms_difference_between(&timings->ready_start, now);
 			break;
 		case EXEC:
-			gettimeofday(now, NULL);
-			burst = (now->tv_sec - timings->exec_start.tv_sec) * 1000.0f + (now->tv_usec - timings->exec_start.tv_usec) / 1000.0f;
+			burst = get_ms_difference_between(&timings->exec_start, now);
 			break;
 		default:
 			break;
@@ -437,6 +435,18 @@ float get_total_for(t_state state, t_burst *timings){
 	}
 
 	return total;
+}
+
+float get_ms_difference_between(struct timeval *start, struct timeval *end){
+
+	return (end->tv_sec - start->tv_sec) * 1000.0f + (end->tv_usec - start->tv_usec) / 1000.0f;
+}
+
+struct timeval *get_time_now(){
+
+	struct timeval *now = malloc(sizeof(struct timeval));
+	gettimeofday(now, NULL);
+	return now;
 }
 
 t_tcb *get_new_tcb(){
@@ -516,6 +526,7 @@ void move_tcb_to(t_tcb *tcb, int state){
 			multiprog_degree++;
 			break;
 		case EXIT:
+			gettimeofday(&tcb->time->finished, NULL);
 			list_add(exitList, tcb);
 			break;
 	}
@@ -630,13 +641,12 @@ void log_metrics(t_tcb *tcb){
 
 		log_info(metricsLog, "Hilo Finalizado");
 		program = get_program(tcb->socket);
-		log_info(metricsLog, "- Programa: %d - Hilo: %d - State: EXIT", program->id, tcb->tid);
-		log_info(metricsLog, "- - Tiempo en Espera: %10.0f ms", tcb->time->total_ready);
-		log_info(metricsLog, "- - Tiempo de uso de CPU: %10.0f ms", tcb->time->total_exec);
-		log_info(metricsLog, "- - Porcentaje del Tiempo de Ejecucion: %10.0f", get_exec_percentage(program, tcb->tid));
+		t_list *auxList = find_all_my_shared_threads(program);
+		print_thread_metrics(tcb, program, auxList);
 		log_info(metricsLog, "------------------------------------------------------------");
 		pthread_mutex_unlock(&state_list_mutex);
 		pthread_mutex_unlock(&metrics_mutex);
+		list_destroy(auxList);
 		return;
 	}
 
@@ -646,29 +656,31 @@ void log_metrics(t_tcb *tcb){
 	for(int i = 0; i < list_size(clientes); i++){
 		t_tcb *thread;
 		program = list_get(clientes, i);
+		t_list *auxList = find_all_my_shared_threads(program);
+		int j;
 		if(program->exec != NULL){
-			log_info(metricsLog, "- Programa: %d - Hilo: %d - State: EXEC", program->id, program->exec->tid);
-			log_info(metricsLog, "- - Tiempo en Espera: %10.0f ms", program->exec->time->total_ready);
-			log_info(metricsLog, "- - Tiempo de uso de CPU: %10.0f ms", get_total_for(EXEC, program->exec->time));
-			log_info(metricsLog, "- - Porcentaje del Tiempo de Ejecucion: %10.0f", get_exec_percentage(program, program->exec->tid));
+			print_thread_metrics(program->exec, program, auxList);
 		}
-		for(int i = 0; i < list_size(program->ready); i++){
-			thread = list_get(program->ready, i);
-			log_info(metricsLog, "- Programa: %d - Hilo: %10.0f - State: READY", program->id, thread->tid);
-			log_info(metricsLog, "- - Tiempo en Espera: %10.0f ms", get_total_for(READY, thread->time));
-			log_info(metricsLog, "- - Tiempo de uso de CPU: %10.0f ms", thread->time->total_exec);
-			log_info(metricsLog, "- - Porcentaje del Tiempo de Ejecucion: %10.0f", get_exec_percentage(program, thread->tid));
+		for(j = 0; j < list_size(program->ready); j++){
+			thread = list_get(program->ready, j);
+			print_thread_metrics(thread, program, auxList);
 		}
+		for(j = 0; j < list_size(auxList); j++){
+			thread = list_get(auxList, j);
+			print_thread_metrics(thread, program, auxList);
+		}
+		list_destroy(auxList);
 	}
 
 	log_info(metricsLog, "Metricas por Programa");
 	for(int i = 0; i < list_size(clientes); i++){
 		program = list_get(clientes, i);
 		log_info(metricsLog, "- Programa: %d", program->id);
-		log_info(metricsLog, "- - Hilos en NEW: %d", get_new_list_size_for(program));
+		log_info(metricsLog, "- - Hilos en NEW: %d", get_list_size_for(program, NEW));
 		log_info(metricsLog, "- - Hilos en READY: %d", list_size(program->ready));
 		log_info(metricsLog, "- - Hilos en RUN: %d", program->exec != NULL ? 1 : 0);
-		log_info(metricsLog, "- - Hilos en BLOCKED: %d", get_blocked_list_size_for(program));
+		log_info(metricsLog, "- - Hilos en BLOCKED: %d", get_list_size_for(program, BLOCKED));
+		log_info(metricsLog, "- - Hilos en EXIT: %d", get_list_size_for(program, EXIT));
 	}
 	pthread_mutex_unlock(&clientes_mutex);
 	pthread_mutex_unlock(&state_list_mutex);
@@ -687,50 +699,134 @@ void log_metrics(t_tcb *tcb){
 	pthread_mutex_unlock(&metrics_mutex);
 }
 
-float get_exec_percentage(t_program *program, int tid){
+void print_thread_metrics(t_tcb *tcb, t_program *program, t_list *sharedThreads){
 
-	if(program->exec == NULL && list_size(program->ready) == 0) return 0;
+	switch(tcb->state){
+		case NEW:{
+			struct timeval *now = get_time_now();
+			log_info(metricsLog, "- Programa: %d - Hilo: %d - State: NEW", program->id, tcb->tid);
+			log_info(metricsLog, "- - Tiempo en ejecucion: %10.0f ms", get_ms_difference_between(&tcb->time->created, now));
+			log_info(metricsLog, "- - Tiempo en Espera: 0 ms");
+			log_info(metricsLog, "- - Tiempo de uso de CPU: 0 ms");
+			log_info(metricsLog, "- - Porcentaje del Tiempo de Ejecucion: 0 %%");
+			free(now);}
+			break;
+		case READY:{
+			struct timeval *now = get_time_now();
+			log_info(metricsLog, "- Programa: %d - Hilo: %d - State: READY", program->id, tcb->tid);
+			log_info(metricsLog, "- - Tiempo en ejecucion: %10.0f ms", get_ms_difference_between(&tcb->time->created, now));
+			log_info(metricsLog, "- - Tiempo en Espera: %10.0f ms", get_total_for(READY, tcb->time));
+			log_info(metricsLog, "- - Tiempo de uso de CPU: %10.0f ms", tcb->time->total_exec);
+			log_info(metricsLog, "- - Porcentaje del Tiempo de Ejecucion: %10.2f %%", get_exec_percentage(program, tcb->tid, sharedThreads));
+			free(now);}
+			break;
+		case EXEC:{
+			struct timeval *now = get_time_now();
+			log_info(metricsLog, "- Programa: %d - Hilo: %d - State: EXEC", program->id, tcb->tid);
+			log_info(metricsLog, "- - Tiempo en ejecucion: %10.0f ms", get_ms_difference_between(&tcb->time->created, now));
+			log_info(metricsLog, "- - Tiempo en Espera: %10.0f ms", program->exec->time->total_ready);
+			log_info(metricsLog, "- - Tiempo de uso de CPU: %10.0f ms", get_total_for(EXEC, program->exec->time));
+			log_info(metricsLog, "- - Porcentaje del Tiempo de Ejecucion: %10.2f %%", get_exec_percentage(program, tcb->tid, sharedThreads));
+			free(now);}
+			break;
+		case BLOCKED:{
+			struct timeval *now = get_time_now();
+			log_info(metricsLog, "- Programa: %d - Hilo: %d - State: BLOCKED", program->id, tcb->tid);
+			log_info(metricsLog, "- - Tiempo en Ejecucion: %10.0f ms", get_ms_difference_between(&tcb->time->created, now));
+			log_info(metricsLog, "- - Tiempo en Espera: %10.0f ms", tcb->time->total_ready);
+			log_info(metricsLog, "- - Tiempo de uso de CPU: %10.0f ms", tcb->time->total_exec);
+			log_info(metricsLog, "- - Porcentaje del Tiempo de Ejecucion: %10.2f %%", get_exec_percentage(program, tcb->tid, sharedThreads));
+			free(now);}
+			break;
+		case EXIT:
+			log_info(metricsLog, "- Programa: %d - Hilo: %d - State: EXIT", program->id, tcb->tid);
+			log_info(metricsLog, "- - Tiempo en Ejecucion: %10.0f ms", get_ms_difference_between(&tcb->time->created, &tcb->time->finished));
+			log_info(metricsLog, "- - Tiempo en Espera: %10.0f ms", tcb->time->total_ready);
+			log_info(metricsLog, "- - Tiempo de uso de CPU: %10.0f ms", tcb->time->total_exec);
+			log_info(metricsLog, "- - Porcentaje del Tiempo de Ejecucion: %10.2f %%", get_exec_percentage(program, tcb->tid, sharedThreads));
+			break;
+		default:
+			break;
+	}
+}
+
+float get_exec_percentage(t_program *program, int tid, t_list *sharedThreads){
+
+	if(program->exec == NULL && list_size(program->ready) == 0 && list_size(sharedThreads) == 0) return 0;
 
 	float actual = 0;
 	float suma = 0;
 
 	if(program->exec != NULL){
-		if(program->exec->tid == tid) actual = program->exec->time->total_exec;
-		suma = program->exec->time->total_exec;
+		suma = get_total_for(EXEC, program->exec->time);
+		if(program->exec->tid == tid) actual = suma;
 	}
 
 	t_tcb *thread;
-	for(int i = 0; i < list_size(program->ready); i++){
+	int i;
+	for(i = 0; i < list_size(program->ready); i++){
 		thread = list_get(program->ready, i);
 		suma += thread->time->total_exec;
 		if(thread->tid == tid) actual = thread->time->total_exec;
 	}
 
-	return (actual * 100.0f)/suma;
+	for(i = 0;i < list_size(sharedThreads); i++){
+		thread = list_get(sharedThreads, i);
+		suma += thread->time->total_exec;
+		if(thread->tid == tid) actual = thread->time->total_exec;
+	}
+
+	return suma != 0 ? (actual * (float)100)/suma : 0;
 }
 
-int get_new_list_size_for(t_program *program){
+int get_list_size_for(t_program *program, t_state state){
+
+	t_list *lista;
+
+	switch(state){
+		case NEW:
+			lista = newList;
+			break;
+		case BLOCKED:
+			lista = blockedList;
+			break;
+		case EXIT:
+			lista = exitList;
+			break;
+		default:
+			return -1;
+	}
 
 	int size = 0;
 	t_tcb *tcb;
+
+	for(int i = 0; i < list_size(lista); i++){
+		tcb = list_get(lista, i);
+		if(tcb->socket == program->socket) size+=1;
+	}
+
+	return size;
+}
+
+t_list *find_all_my_shared_threads(t_program *program){
+
+	t_list *myThreads = list_create();
+	t_tcb *tcb = NULL;
+
 	for(int i = 0; i < list_size(newList); i++){
 		tcb = list_get(newList, i);
-		if(tcb->socket == program->socket) size+=1;
+		if(tcb->socket == program->socket) list_add(myThreads, tcb);
 	}
-
-	return size;
-}
-
-int get_blocked_list_size_for(t_program *program){
-
-	int size = 0;
-	t_tcb *tcb;
 	for(int i = 0; i < list_size(blockedList); i++){
 		tcb = list_get(blockedList, i);
-		if(tcb->socket == program->socket) size+=1;
+		if(tcb->socket == program->socket) list_add(myThreads, tcb);
+	}
+	for(int i = 0; i < list_size(exitList); i++){
+		tcb = list_get(exitList, i);
+		if(tcb->socket == program->socket) list_add(myThreads, tcb);
 	}
 
-	return size;
+	return myThreads;
 }
 
 /*               CREATE               */
@@ -763,6 +859,7 @@ t_burst *create_burst(){
 	burst->last_estimate = 0;
 	burst->total_exec = 0;
 	burst->total_ready = 0;
+	gettimeofday(&burst->created, NULL);
 
 	return burst;
 }
@@ -852,6 +949,12 @@ void destroy_semaforo(t_semaforo *semaforo){
 
 void destroy_burst(t_burst *burst){
 
+	free(&burst->created);
+	free(&burst->finished);
+	free(&burst->exec_start);
+	free(&burst->exec_end);
+	free(&burst->ready_start);
+	free(&burst->ready_end);
 	free(burst);
 }
 

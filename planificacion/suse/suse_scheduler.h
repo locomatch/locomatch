@@ -30,6 +30,8 @@ typedef struct {
 	struct timeval exec_end;
 	float last_burst;
 	float last_estimate;
+	struct timeval created;
+	struct timeval finished;
 } t_burst;
 
 typedef struct {
@@ -91,7 +93,7 @@ void wakeup(t_semaforo *semaforo);
 void suse_join(int tid, t_program *program);
 void suse_close(int tid, t_program *program);
 void unjoin_exec(t_program *program);
-void change_exec_tcb(t_program *program, t_tcb *shortest_tcb, int shortest_estimate);
+void change_exec_tcb(t_program *program, t_tcb *shortest_tcb);
 void notify_program(t_program *program, op_code codigo);
 void main_exec_signal(t_tcb *tcb);
 float get_estimate(t_burst *burst);
@@ -100,6 +102,8 @@ void set_state_start_timing(t_state state, t_burst *timings);
 void set_new_timings_for(t_state state, t_burst *timings);
 float get_last_burst_for(t_state state, t_burst *timings);
 float get_total_for(t_state state, t_burst *timings);
+float get_ms_difference_between(struct timeval *start, struct timeval *end);
+struct timeval *get_time_now();
 t_tcb *get_new_tcb();
 t_semaforo *get_semaforo(char* sem_name);
 void move_tcb_to(t_tcb *tcb, int state);
@@ -111,9 +115,10 @@ int get_program_id(int socket);
 void program_remove_tcb_from_state(int socket, int tid, int state);
 void program_add_tcb_to_state(t_tcb *tcb, int state);
 void log_metrics(t_tcb *tcb);
-float get_exec_percentage(t_program *program, int tid);
-int get_new_list_size_for(t_program *program);
-int get_blocked_list_size_for(t_program *program);
+void print_thread_metrics(t_tcb *tcb, t_program *program, t_list *sharedThreads);
+float get_exec_percentage(t_program *program, int tid, t_list *sharedThreads);
+int get_list_size_for(t_program *program, t_state state);
+t_list *find_all_my_shared_threads(t_program *program);
 
 t_semaforo *create_semaforo(t_config_semaforo *config_semaforo);
 t_burst *create_burst();
