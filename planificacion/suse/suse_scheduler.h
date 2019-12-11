@@ -50,6 +50,8 @@ typedef struct {
 	pthread_t short_scheduler;
 	pthread_mutex_t main_loaded_mutex;
 	sem_t tcb_counter;
+	pthread_mutex_t wakeup_mutex;
+	t_list *wakeupList;
 	bool close;
 } t_program;
 
@@ -75,6 +77,8 @@ t_list *exitList;
 pthread_mutex_t state_list_mutex;
 pthread_mutex_t metrics_mutex;
 pthread_mutex_t clientes_mutex;
+sem_t new_counter;
+sem_t available_multiprog;
 
 pthread_t long_term_scheduler;
 
@@ -96,6 +100,8 @@ void unjoin_exec(t_program *program);
 void change_exec_tcb(t_program *program, t_tcb *shortest_tcb);
 void notify_program(t_program *program, op_code codigo);
 void main_exec_signal(t_tcb *tcb);
+void notify_wakeup(t_tcb *tcb);
+bool wakeup_threads(t_program *program);
 float get_estimate(t_burst *burst);
 float get_estimate_with_burst(t_burst *burst, float last_burst);
 void set_state_start_timing(t_state state, t_burst *timings);
@@ -107,6 +113,9 @@ struct timeval *get_time_now();
 t_tcb *get_new_tcb();
 t_semaforo *get_semaforo(char* sem_name);
 void move_tcb_to(t_tcb *tcb, int state);
+void increase_multiprog();
+void decrease_multiprog();
+void check_multiprog();
 int find_tcb_pos(t_list *list, int tid, int socket);
 int find_program_pos(int socket);
 bool is_program_loaded(int socket);

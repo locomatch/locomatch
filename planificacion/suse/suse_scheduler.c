@@ -14,6 +14,8 @@ void init_scheduler(){
 
 	// Semaforos
 	pthread_mutex_init(&state_list_mutex, NULL);
+	sem_init(&new_counter, 0, 0);
+	sem_init(&available_multiprog, 0, configData->max_multiprog);
 
 	// Scheduler
 	if (pthread_create (&long_term_scheduler, NULL, schedule_long_term, NULL) != 0){
@@ -43,12 +45,16 @@ void *schedule_long_term(void *arg){
 
 	t_tcb *current = NULL;
 	while(true){
-		if(current == NULL) current = get_new_tcb();
-		if(current != NULL && multiprog_degree < configData->max_multiprog){
-			move_tcb_to(current, READY);
-			if(current->tid == 0) main_exec_signal(current);
-			current = NULL;
-		}else if((current == NULL) && endsuse) break;
+
+		sem_wait(&new_counter);
+		current = get_new_tcb();
+		check_multiprog();
+
+		move_tcb_to(current, READY);
+		if(current->tid == 0) main_exec_signal(current);
+
+		current = NULL;
+		if(endsuse) break;
 	}
 
 	log_debug(logger, "[SUSE] Finalizando Planificador de Largo Plazo");
@@ -120,6 +126,9 @@ void *schedule_short_term(void *arg){
 				log_debug(logger, "[ProgramID: %d] Operacion desconocida - op_code: %d", self->id, codigo);
 				break;
 		}
+
+		wakeup_threads(self);
+
 		pthread_mutex_lock(&state_list_mutex);
 		if((list_size(self->ready) == 0) && endsuse) self->close = true;
 		pthread_mutex_unlock(&state_list_mutex);
@@ -141,6 +150,8 @@ void schedule_next_for(t_program *program){
 
 	if(list_size(program->ready) == 0){
 		if(program->exec == NULL){
+			pthread_mutex_unlock(&state_list_mutex);
+			if(wakeup_threads(program)) goto start;
 			wait_for_threads(program);
 			goto start;
 		}
@@ -188,11 +199,12 @@ void schedule_next_for(t_program *program){
 
 void wait_for_threads(t_program *program){
 
-	pthread_mutex_unlock(&state_list_mutex);
 	log_debug(logger, "[ProgramID: %d] No hay hilos para ejecutar", program->id);
 	sem_wait(&program->tcb_counter);
 	sem_post(&program->tcb_counter);
 	log_debug(logger, "[ProgramID: %d] Hilos para ejecutar encontrados", program->id);
+
+	wakeup_threads(program);
 }
 
 void suse_wait(int tid, char* sem_name, t_program *program){
@@ -244,7 +256,7 @@ void wakeup(t_semaforo *semaforo){
 	t_tcb *tcb = list_get(semaforo->blocked, 0);
 	list_remove(semaforo->blocked, 0);
 
-	move_tcb_to(tcb, READY);
+	notify_wakeup(tcb);
 	pthread_mutex_unlock(&semaforo->sem_mutex);
 }
 
@@ -256,27 +268,23 @@ void suse_join(int tid, t_program *program){
 	pthread_mutex_lock(&state_list_mutex);
 
 	int pos = find_tcb_pos(program->ready, tid, program->socket);
-
 	if(pos == ELEMENT_NOT_FOUND){
-		pthread_mutex_unlock(&state_list_mutex);
 
-		pthread_mutex_lock(&state_list_mutex);
 		pos = find_tcb_pos(exitList, tid, program->socket);
 		if(pos != ELEMENT_NOT_FOUND){
 			log_debug(logger, "[ProgramID: %d] El tid: %d ya finalizo", program->id, tid);
 			pthread_mutex_unlock(&state_list_mutex);
 			return;
 		}
-		pthread_mutex_unlock(&state_list_mutex);
 
-		pthread_mutex_lock(&state_list_mutex);
 		pos = find_tcb_pos(blockedList, tid, program->socket);
 		if(pos != ELEMENT_NOT_FOUND){
 			tcb = list_get(blockedList, pos);
 			goto tcbFound;
 		}else{
 			pthread_mutex_unlock(&state_list_mutex);
-			goto start; // TODO Pensar una mejor solucion
+			wakeup_threads(program);
+			goto start;
 		}
 	}
 
@@ -350,6 +358,36 @@ void main_exec_signal(t_tcb *tcb){
 	t_program *program = get_program(tcb->socket);
 
 	pthread_mutex_unlock(&program->main_loaded_mutex);
+}
+
+void notify_wakeup(t_tcb *tcb){
+
+	t_program *program = get_program(tcb->socket);
+
+	pthread_mutex_lock(&program->wakeup_mutex);
+	list_add(program->wakeupList, tcb);
+	sem_post(&program->tcb_counter);
+	pthread_mutex_unlock(&program->wakeup_mutex);
+}
+
+bool wakeup_threads(t_program *program){
+
+	pthread_mutex_lock(&program->wakeup_mutex);
+
+	if(list_size(program->wakeupList) == 0){
+		pthread_mutex_unlock(&program->wakeup_mutex);
+		return false;
+	}
+
+	t_tcb *tcb;
+	for(int i = 0; i < list_size(program->wakeupList); i++){
+		tcb = list_remove(program->wakeupList, i);
+		move_tcb_to(tcb, READY);
+		sem_wait(&program->tcb_counter);
+	}
+	pthread_mutex_unlock(&program->wakeup_mutex);
+
+	return true;
 }
 
 float get_estimate(t_burst *burst){
@@ -489,17 +527,17 @@ void move_tcb_to(t_tcb *tcb, int state){
 		case READY:
 			set_new_timings_for(READY, tcb->time);
 			program_remove_tcb_from_state(tcb->socket, tcb->tid, tcb->state);
-			multiprog_degree--;
+			decrease_multiprog();
 			break;
 		case EXEC:
 			set_new_timings_for(EXEC, tcb->time);
 			program_remove_tcb_from_state(tcb->socket, tcb->tid, tcb->state);
-			multiprog_degree--;
+			decrease_multiprog();
 			break;
 		case BLOCKED:
 			pos = find_tcb_pos(blockedList, tcb->tid, tcb->socket);
 			list_remove(blockedList, pos);
-			multiprog_degree--;
+			decrease_multiprog();
 			break;
 		case EXIT:
 			pos = find_tcb_pos(exitList, tcb->tid, tcb->socket);
@@ -514,16 +552,16 @@ void move_tcb_to(t_tcb *tcb, int state){
 		case READY:
 			set_state_start_timing(READY, tcb->time);
 			program_add_tcb_to_state(tcb, READY);
-			multiprog_degree++;
+			increase_multiprog();
 			break;
 		case EXEC:
 			set_state_start_timing(EXEC, tcb->time);
 			program_add_tcb_to_state(tcb, EXEC);
-			multiprog_degree++;
+			increase_multiprog();
 			break;
 		case BLOCKED:
 			list_add(blockedList, tcb);
-			multiprog_degree++;
+			increase_multiprog();
 			break;
 		case EXIT:
 			gettimeofday(&tcb->time->finished, NULL);
@@ -534,6 +572,24 @@ void move_tcb_to(t_tcb *tcb, int state){
 	tcb->state = state;
 
 	pthread_mutex_unlock(&state_list_mutex);
+}
+
+void increase_multiprog(){
+
+	sem_wait(&available_multiprog);
+	multiprog_degree++;
+}
+
+void decrease_multiprog(){
+
+	sem_post(&available_multiprog);
+	multiprog_degree--;
+}
+
+void check_multiprog(){
+
+	sem_wait(&available_multiprog);
+	sem_post(&available_multiprog);
 }
 
 int find_tcb_pos(t_list *list, int tid, int socket){
@@ -609,7 +665,6 @@ void program_remove_tcb_from_state(int socket, int tid, int state){
 	}
 	else if(state == EXEC){
 		program->exec = NULL;
-		sem_wait(&program->tcb_counter);
 	}
 	else return;
 }
@@ -625,7 +680,6 @@ void program_add_tcb_to_state(t_tcb *tcb, int state){
 	}
 	else if(state == EXEC){
 		program->exec = tcb;
-		sem_post(&program->tcb_counter);
 	}
 	else return;
 }
@@ -883,7 +937,9 @@ t_tcb *create_tcb(int socket, int thread_id){
 	pthread_mutex_lock(&state_list_mutex);
 
 	list_add(newList, tcb);
+	sem_post(&new_counter);
 	log_debug(logger,"Nuevo TCB - tid: %d - ProgramID: %d", tcb->tid, get_program_id(socket));
+
 
 	pthread_mutex_unlock(&state_list_mutex);
 
@@ -910,6 +966,8 @@ t_program *create_program(int client_socket){
 	pthread_mutex_init(&programa->main_loaded_mutex, NULL);
 	pthread_mutex_lock(&programa->main_loaded_mutex);
 	sem_init(&programa->tcb_counter, 0, 0);
+	pthread_mutex_init(&programa->wakeup_mutex, NULL);
+	programa->wakeupList = list_create();
 
 	pthread_mutex_lock(&clientes_mutex);
 	list_add(clientes, programa);
@@ -982,6 +1040,7 @@ void destroy_program(t_program *program){
 	if(program->exec != NULL) destroy_tcb(program->exec);
 	list_remove_and_destroy_all_tcb_from_program(blockedList, program->socket);
 	list_remove_and_destroy_all_tcb_from_program(exitList, program->socket);
+	list_destroy_and_destroy_elements(program->wakeupList, (void*) destroy_tcb);
 
 	t_semaforo *sem;
 	int i;
@@ -993,6 +1052,7 @@ void destroy_program(t_program *program){
 	}
 
 	sem_destroy(&program->tcb_counter);
+	pthread_mutex_destroy(&program->wakeup_mutex);
 
 	t_program *aux;
 	for(i = 0; i < list_size(clientes); i++){
