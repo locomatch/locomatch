@@ -22,6 +22,7 @@ int suse_create(int tid){
 	agregar_a_paquete(create, threadid, sizeof(int));
 	enviar_paquete(create, suse_socket);
 
+	eliminar_paquete(create);
 	free(threadid);
 	return 0;
 }
@@ -30,13 +31,15 @@ int suse_schedule_next(void){
 
 	enviar_operacion(suse_socket, SUSE_SCHEDULE_NEXT);
 
+	int tid = -1;
 	if(recibir_operacion(suse_socket) == SUSE_SCHEDULE_NEXT_RETURN){
 		t_list *parametros = list_create();
 		parametros = recibir_paquete(suse_socket);
-		return atoi((char*)list_get(parametros, 0));
+		tid = atoi((char*)list_get(parametros, 0));
+		list_destroy_and_destroy_elements(parametros, (void*) free)
 	}
 
-	return -1;
+	return tid;
 }
 
 int suse_join(int tid){
@@ -47,6 +50,7 @@ int suse_join(int tid){
 	agregar_a_paquete(join, threadid, sizeof(int));
 	enviar_paquete(join, suse_socket);
 
+	eliminar_paquete(join);
 	free(threadid);
 	return 0;
 }
@@ -59,6 +63,7 @@ int suse_close(int tid){
 	agregar_a_paquete(close, threadid, sizeof(int));
 	enviar_paquete(close, suse_socket);
 
+	eliminar_paquete(close);
 	free(threadid);
 	return 0;
 }
@@ -72,6 +77,7 @@ int suse_wait(int tid, char *sem_name){
 	agregar_a_paquete(wait, sem_name, strlen(sem_name)+1);
 	enviar_paquete(wait, suse_socket);
 
+	eliminar_paquete(wait);
 	free(threadid);
 	return 0;
 }
@@ -85,6 +91,7 @@ int suse_signal(int tid, char *sem_name){
 	agregar_a_paquete(signal, sem_name, strlen(sem_name)+1);
 	enviar_paquete(signal, suse_socket);
 
+	eliminar_paquete(signal);
 	free(threadid);
 	return 0;
 }

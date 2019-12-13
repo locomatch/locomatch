@@ -47,6 +47,8 @@ void init_metrics(){
 	}
 
 	pthread_mutex_init(&metrics_mutex, NULL);
+
+	pthread_detach(metrics_thread);
 }
 
 void *timed_metrics(void *arg){
@@ -54,7 +56,7 @@ void *timed_metrics(void *arg){
 	while(!endsuse){
 
 		sleep(configData->metrics_timer);
-
+		if(endsuse) break;
 		log_metrics(NULL);
 	}
 
@@ -161,7 +163,9 @@ void join_threads(){
 	shutdown(server_socket,0);
 
 	pthread_join(socket_thread, NULL);
-	pthread_join(metrics_thread, NULL);
+	int value = 0;
+	sem_getvalue(&new_counter, &value);
+	sem_post(&new_counter);
 	pthread_join(long_term_scheduler, NULL);
 
 	t_program *cliente;
@@ -209,7 +213,7 @@ t_list* _get_semaforos_from_config(){
 		t_config_semaforo* semaforo = malloc(sizeof(t_config_semaforo));
 		if(semaforo == NULL) return NULL;
 
-		semaforo->id = array_ids[i];
+		semaforo->id = strdup(array_ids[i]);
 		semaforo->init = atoi(array_init[i]);
 		semaforo->max = atoi(array_max[i]);
 
@@ -217,6 +221,15 @@ t_list* _get_semaforos_from_config(){
 
 		i++;
 	}
+
+	for(int k = 0; k < i; k++){
+		free(array_ids[k]);
+		free(array_init[k]);
+		free(array_max[k]);
+	}
+	free(array_ids);
+	free(array_init);
+	free(array_max);
 
 	return semaforos;
 }

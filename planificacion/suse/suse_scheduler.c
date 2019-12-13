@@ -44,17 +44,17 @@ void init_semaforos(){
 void *schedule_long_term(void *arg){
 
 	t_tcb *current = NULL;
-	while(true){
+	while(!endsuse){
 
 		sem_wait(&new_counter);
+		if(endsuse) break;
 		current = get_new_tcb();
 		check_multiprog();
-
-		move_tcb_to(current, READY);
-		if(current->tid == 0) main_exec_signal(current);
-
+		if(current != NULL){
+			move_tcb_to(current, READY);
+			if(current->tid == 0) main_exec_signal(current);
+		}
 		current = NULL;
-		if(endsuse) break;
 	}
 
 	log_debug(logger, "[SUSE] Finalizando Planificador de Largo Plazo");
@@ -65,9 +65,9 @@ void *schedule_long_term(void *arg){
 void *schedule_short_term(void *arg){
 
 	t_program *self = get_program(*((int *)arg));
-	t_list *parametros = list_create();
+	t_list *parametros;
 	int tid = -2;
-	char* sem = string_new();
+	char* sem;
 
 	log_debug(logger, "[ProgramID: %d] Iniciando Planificador de Corto Plazo", self->id);
 
@@ -87,6 +87,7 @@ void *schedule_short_term(void *arg){
 					pthread_mutex_unlock(&self->main_loaded_mutex);
 					pthread_mutex_destroy(&self->main_loaded_mutex);
 				}else create_tcb(self->socket, tid);
+				list_destroy_and_destroy_elements(parametros, (void*)free);
 				break;
 			case SUSE_SCHEDULE_NEXT:
 				log_debug(logger, "[ProgramID: %d] Operacion Recibida - SUSE_SCHEDULE_NEXT", self->id);
@@ -98,6 +99,8 @@ void *schedule_short_term(void *arg){
 				sem = (char*)list_get(parametros, 1);
 				log_debug(logger, "[ProgramID: %d] Operacion Recibida - SUSE_WAIT tid: %d , sem: %s", self->id, tid, sem);
 				suse_wait(atoi(list_get(parametros, 0)), sem, self);
+				free(sem);
+				list_destroy_and_destroy_elements(parametros, (void*)free);
 				break;
 			case SUSE_SIGNAL:
 				parametros = recibir_paquete(self->socket);
@@ -105,18 +108,22 @@ void *schedule_short_term(void *arg){
 				sem = (char*)list_get(parametros, 1);
 				log_debug(logger, "[ProgramID: %d] Operacion Recibida - SUSE_SIGNAL tid: %d , sem: %s", self->id, tid, sem);
 				suse_signal(tid, sem, self);
+				free(sem);
+				list_destroy_and_destroy_elements(parametros, (void*)free);
 				break;
 			case SUSE_JOIN:
 				parametros = recibir_paquete(self->socket);
 				tid = atoi(list_get(parametros, 0));
 				log_debug(logger, "[ProgramID: %d] Operacion Recibida - SUSE_JOIN tid: %d", self->id, tid);
 				suse_join(tid, self);
+				list_destroy_and_destroy_elements(parametros, (void*)free);
 				break;
 			case SUSE_CLOSE:
 				parametros = recibir_paquete(self->socket);
 				tid = atoi(list_get(parametros, 0));
 				log_debug(logger, "[ProgramID: %d] Operacion Recibida - SUSE_CLOSE tid: %d", self->id, tid);
 				suse_close(tid, self);
+				list_destroy_and_destroy_elements(parametros, (void*)free);
 				break;
 			case -1:
 				log_debug(logger, "[ProgramID: %d] El cliente se desconecto.", self->id);
@@ -137,7 +144,7 @@ void *schedule_short_term(void *arg){
 	log_debug(logger, "[FINALIZADO] Planificador de Corto Plazo: program_id = %d", self->id);
 
 	if(sem != NULL) free(sem);
-	if(parametros != NULL) free(parametros);
+	if(parametros != NULL) list_destroy_and_destroy_elements(parametros, (void*)free);
 
 	pthread_exit(EXIT_SUCCESS);
 }
@@ -346,6 +353,7 @@ void notify_program(t_program *program, op_code codigo){
 			agregar_a_paquete(reply, threadid, sizeof(int));
 			enviar_paquete(reply, program->socket);
 			log_debug(logger, "[ProgramID: %d] Siguiente thread notificado - tid: %s", program->id, threadid);
+			eliminar_paquete(reply);
 			free(threadid);	}
 			break;
 		default:
@@ -1007,12 +1015,6 @@ void destroy_semaforo(t_semaforo *semaforo){
 
 void destroy_burst(t_burst *burst){
 
-	free(&burst->created);
-	free(&burst->finished);
-	free(&burst->exec_start);
-	free(&burst->exec_end);
-	free(&burst->ready_start);
-	free(&burst->ready_end);
 	free(burst);
 }
 
@@ -1076,16 +1078,14 @@ void destroy_scheduler(pthread_t *scheduler){
 
 void destroy_lists(){
 
-	pthread_mutex_lock(&state_list_mutex);
+	list_clean_and_destroy_elements(clientes, (void*) destroy_program);
+	list_destroy_and_destroy_elements(clientes, (void*) free);
+	list_destroy_and_destroy_elements(semaforos, (void*) destroy_semaforo);
 
 	list_destroy_and_destroy_elements(newList,(void*) destroy_tcb);
 	list_destroy_and_destroy_elements(blockedList,(void*) destroy_tcb);
 	list_destroy_and_destroy_elements(exitList,(void*) destroy_tcb);
 
-	list_destroy_and_destroy_elements(clientes, (void*) destroy_program);
-	list_destroy_and_destroy_elements(semaforos, (void*) destroy_semaforo);
-
-	pthread_mutex_unlock(&state_list_mutex);
 }
 
 void destroy_mutexes(){
@@ -1110,5 +1110,5 @@ void list_remove_and_destroy_all_tcb_from_program(t_list *lista, int socket){
 		list_remove_and_destroy_element(lista, atoi(list_get(pos, i)), (void*) destroy_tcb);
 	}
 
-	free(pos);
+	list_destroy_and_destroy_elements(pos, (void*) free);
 }
