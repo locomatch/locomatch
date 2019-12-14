@@ -143,8 +143,8 @@ void *schedule_short_term(void *arg){
 
 	log_debug(logger, "[FINALIZADO] Planificador de Corto Plazo: program_id = %d", self->id);
 
-	if(sem != NULL) free(sem);
-	if(parametros != NULL) list_destroy_and_destroy_elements(parametros, (void*)free);
+	//if(sem != NULL) free(sem);
+	//if(parametros != NULL) list_destroy_and_destroy_elements(parametros, (void*)free);
 
 	pthread_exit(EXIT_SUCCESS);
 }
