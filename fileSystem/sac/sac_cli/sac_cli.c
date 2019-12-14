@@ -126,10 +126,58 @@ void sac_send(char* msg, int serverSocket){
 }*/
 
 /* sac_open abre un archivo */
-int sac_open(char* msg) {
+static int sac_open(const char *path, struct fuse_file_info *fi) {
     log_info(logger,"Se recibio una instruccion open");
+
+    //a sac_cli yo le voy a mandar el path y las flags de fi y me va a devolver un int que es el file descriptor
+
+    int flags = fi->flags;
+    char flags_s[10]; 
+    sprintf(flags_s,"%d",flags);
+
+    char* msg = malloc(strlen("open ")+strlen(path)+strlen(" ")+strlen(flags_s)+2);
+    msg[0] = '\0';
+    strcat(msg ,"open ");
+    strcat(msg ,path);
+    strcat(msg ," ");
+    strcat(msg ,flags_s);
+
+    log_info(logger, "El mensaje a enviar es: %s", msg);
+
     sac_send(msg, serverSocket);
-    return 0;
+    
+    free(msg);
+
+    //obtener el responce para cargar la estructura que tiene que devolver esta garompa
+    char* response_buff = malloc(100);
+    response_buff[0] = '\0';
+    read(serverSocket, response_buff, 100);
+
+    printf("el response_buff dice esto: %s\n", response_buff);
+
+    if(strcmp(response_buff,"EISDIR") == 0) {
+        //es un directorio
+        log_info(logger, "El archivo que se intenta abrir es un directorio");
+        errno = EISDIR;
+        return -1;
+    } else if (strcmp(response_buff,"-ENOENT") == 0) {
+        //no existe o fue borrado
+        log_info(logger, "El archivo que se intenta abrir no existe o fue borrado");
+        errno = ENOENT;
+        return -1;
+
+        //TODO creo que tenia que setear errno y retornar -1   <-- VER ESTO
+
+    } else {
+        //retorno un string que contiene el file descriptor
+        int file_descriptor = 0;
+
+        if(response_buff[0] == '\0') {
+        	file_descriptor = atoi(response_buff);
+        }
+
+        return file_descriptor;
+    }
 }
 
 /* sac_read leer un archivo abierto */
@@ -147,7 +195,7 @@ static int sac_getattr(const char *path, struct stat *stbuf, struct fuse_file_in
     //int res = 0;
     memset(stbuf, 0, sizeof(struct stat));
 
-    char* msg = malloc(strlen("getattr")+strlen(path)+2);
+    char* msg = malloc(strlen("getattr ")+strlen(path)+2);
     msg[0] = '\0';
     strcat(msg ,"getattr ");
     strcat(msg ,path);
@@ -168,6 +216,7 @@ static int sac_getattr(const char *path, struct stat *stbuf, struct fuse_file_in
     if(strcmp(response_buff,"-ENOENT") == 0) {
         //retornar el error
         log_info(logger, "No se encontró el archivo");
+        //errno = ENOENT;
         return -ENOENT;
     } else if (strcmp(response_buff,"S_IFDIR") == 0) {
         //es un directorio
@@ -180,7 +229,7 @@ static int sac_getattr(const char *path, struct stat *stbuf, struct fuse_file_in
         //parseo response_buff para que me quede un array con [S_IFREG,123223] pasar el segundo valor a numeros porque esta en char
         char** response_array = string_split(response_buff, " ");
 
-        if(strcmp(response_buff,"S_IFREG") == 0) {
+        if(strcmp(response_array[0],"S_IFREG") == 0) {
             //es un archivo regular
             int file_size = atoi(response_array[1]);
 
@@ -191,6 +240,7 @@ static int sac_getattr(const char *path, struct stat *stbuf, struct fuse_file_in
         } else {
             //hubo un error
             log_error(logger, "Hubo algun error al regresar getattr");
+            //errno = ENOENT;
             return -ENOENT;
         }
     }
@@ -209,7 +259,7 @@ static int sac_mknod(char* path, mode_t mode, dev_t rdev) {
 
     char* msg = malloc(strlen("mknod ")+strlen(path)+2);
     msg[0] = '\0';
-    strcat(msg ,"getattr ");
+    strcat(msg ,"mknod ");
     strcat(msg ,path);
 
     log_info(logger, "El mensaje a enviar es: %s", msg);
@@ -227,28 +277,71 @@ static int sac_mknod(char* path, mode_t mode, dev_t rdev) {
     if(strcmp(response_buff,"EEXIST") == 0) {
         //retornar el error
         log_info(logger, "el archivo que quiere crear ya existe");
-        return EEXIST;
+        errno = EEXIST;
+        return -1;
     } else if (strcmp(response_buff,"ENAMETOOLONG") == 0) {
         //retornar el error
-        log_info(logger, "el archivo que quiere crear ya existe");
-        return ENAMETOOLONG;
+        log_info(logger, "el nombre del archivo que quiere crear es demasiado largo");
+        errno = ENAMETOOLONG;
+        return -1;
     } else if (strcmp(response_buff,"ENOENT") == 0) {
         //retornar el error
         log_info(logger, "el directorio donde quiere crear el archivo no existe");
-        return ENOENT;
+        errno = ENOENT;
+        return -1;
     } else if (strcmp(response_buff,"ENOTDIR") == 0) {
         //retornar el error
         log_info(logger, "el directorio donde quiere crear el archivo no es un directorio");
-        return ENOTDIR;
+        errno = ENOTDIR;
+        return -1;
     }
 
     return 0;
 }
 
 /* sac_mkdir crea un directorio */
-int sac_mkdir(char* msg) {
+static int sac_mkdir(char* path, mode_t mode) {
     log_info(logger,"Se recibio una instruccion mkdir");
+
+    char* msg = malloc(strlen("mkdir ")+strlen(path)+2);
+    msg[0] = '\0';
+    strcat(msg ,"mkdir ");
+    strcat(msg ,path);
+
+    log_info(logger, "El mensaje a enviar es: %s", msg);
+
     sac_send(msg, serverSocket);
+    free(msg);
+
+    //obtener el responce para cargar la estructura que tiene que devolver esta garompa
+    char* response_buff = malloc(100);
+    response_buff[0] = '\0';
+    read(serverSocket, response_buff, 100);
+
+    printf("el response_buff dice esto: %s\n", response_buff);
+
+    if(strcmp(response_buff,"EEXIST") == 0) {
+        //retornar el error
+        log_info(logger, "el directorio que quiere crear ya existe");
+        errno = EEXIST;
+        return -1;
+    } else if (strcmp(response_buff,"ENAMETOOLONG") == 0) {
+        //retornar el error
+        log_info(logger, "el nombre del directorio que quiere crear es demasiado largo");
+        errno = ENAMETOOLONG;
+        return -1;
+    } else if (strcmp(response_buff,"ENOENT") == 0) {
+        //retornar el error
+        log_info(logger, "el directorio donde quiere crear el directorio no existe");
+        errno = ENOENT;
+        return -1;
+    } else if (strcmp(response_buff,"ENOTDIR") == 0) {
+        //retornar el error
+        log_info(logger, "el directorio donde quiere crear el directorio no es un directorio");
+        errno = ENOTDIR;
+        return -1;
+    }
+
     return 0;
 }
 

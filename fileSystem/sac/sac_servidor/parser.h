@@ -13,7 +13,7 @@
 typedef struct {
     char* instruction;
     char* path;
-    char* mode;
+    char* flags;
 } package_open;
 
 typedef struct {
@@ -31,13 +31,13 @@ typedef struct {
 typedef struct {
     char* instruction;
     char* path;
-    char* mode;
+    //char* mode;
 } package_mknod;
 
 typedef struct {
     char* instruction;
     char* path;
-    char* mode;
+    //char* mode;
 } package_mkdir;
 
 typedef struct {

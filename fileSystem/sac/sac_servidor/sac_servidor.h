@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include "server.h"
 #include "parser.h"
+#include "bitarray.h"
 
 #include <pthread.h>
 #include <commons/log.h>
@@ -23,6 +24,11 @@
 #define MAX_FILENAME_LENGTH 71
 #define MAGIC_NUMBER_NAME "SAC"
 #define BLOCK_SIZE 4096
+
+// BLOCK
+typedef struct sac_block_t {
+    unsigned char bytes[BLOCK_SIZE];
+} GBlock;
 
 // HEADER:
 typedef struct sac_header_t {
@@ -44,10 +50,22 @@ typedef struct sac_file_t {
     uint32_t blocks[1000];
 } GFile;
 
+// Entrada en la tabla de archivos abiertos:
+struct sac_opened_file {
+    uint16_t fd; // file descriptor
+    uint8_t mode; // modo en el que se abrio
+    uint8_t state; // 0:borrado 1:ocupado 2:directorio
+    unsigned char fname[MAX_FILENAME_LENGTH];
+    uint32_t parent_block;//bloque padre
+    struct sac_opened_file* next;
+};
+
 
 /*        PROTOTYPES        */
 
 int main(void);
+//void check_disc();
+void dump_block(int b);
 
 char* action_open(package_open* package);
 char* action_read(package_read* package);
@@ -64,5 +82,9 @@ int find_node(char** path_array);
 int check_node_state(int directory_node_number);
 int find_free_block(int place); // place = 0 node table ; place = 1 data blocks
 void set_block_as_occupied(int block_number);
+
+int insert_to_opened_files_table(struct sac_opened_file* opened_file);
+
+void format_bitmap_nodetable();
 
 #endif /* SAC_SERVIDOR_H_ */

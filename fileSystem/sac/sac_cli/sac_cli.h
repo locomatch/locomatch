@@ -29,11 +29,11 @@
 
 int main(int argc,char *argv[]);
 
-int sac_open(char* msg);
+static int sac_open(const char *path, struct fuse_file_info *fi);
 int sac_read(char* msg);
 static int sac_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi);
 static int sac_mknod(char* path, mode_t mode, dev_t rdev);
-int sac_mkdir(char* msg);
+static int sac_mkdir(char* path, mode_t mode);
 int sac_write(char* msg);
 int sac_opendir(char* msg);
 int sac_readdir(char* msg);

@@ -54,7 +54,7 @@ char* parse_input(char* instr_buff){ //aca da error
     } 
 
     //int instruction_size = strlen( parameters[0])+1;
-    string_to_upper(parameters[0]);
+    //string_to_upper(parameters[0]);
 
     int parameters_length = 0;
 
@@ -87,7 +87,7 @@ char* parse_input(char* instr_buff){ //aca da error
 
     printf("parameter 0 is: %s\n", parameters[0]);
 
-    if(!strcmp(parameters[0],"OPEN")){
+    if(!strcmp(parameters[0],"open")){
         
         if(parameters_length != 3){
             printf("numero de parametros incorrecto\n");
@@ -112,7 +112,7 @@ char* parse_input(char* instr_buff){ //aca da error
         package->path = parameters[1];
 
         //MODE
-        package->mode = parameters[2];
+        package->flags = parameters[2];
 
         //printf("\n Datos de paquete:\n instruction: %s\n Table name: %s\n Key: %d\n", package->instruction, package->table_name,package->key);
         char* response = action_open(package);
@@ -120,7 +120,7 @@ char* parse_input(char* instr_buff){ //aca da error
         return response;
     }
 
-    if(!strcmp(parameters[0],"READ")){
+    if(!strcmp(parameters[0],"read")){
         
         if(parameters_length != 3){
             printf("numero de parametros incorrecto\n");
@@ -153,7 +153,7 @@ char* parse_input(char* instr_buff){ //aca da error
         return response;
     }
 
-    if(!strcmp(parameters[0],"GETATTR")){
+    if(!strcmp(parameters[0],"getattr")){
         
         if(parameters_length != 2){
             printf("numero de parametros incorrecto\n");
@@ -186,7 +186,7 @@ char* parse_input(char* instr_buff){ //aca da error
         return response;
     }
 
-    if(!strcmp(parameters[0],"MKNOD")){
+    if(!strcmp(parameters[0],"mknod")){
         
         if(parameters_length != 2){
             printf("numero de parametros incorrecto\n");
@@ -219,9 +219,9 @@ char* parse_input(char* instr_buff){ //aca da error
         return response;
     }
 
-    if(!strcmp(parameters[0],"MKDIR")){
+    if(!strcmp(parameters[0],"mkdir")){
         
-        if(parameters_length != 3){
+        if(parameters_length != 2){
             printf("numero de parametros incorrecto\n");
             kill_args();
             //exec_err_abort(); TODO ver para que sirve y en que biblioteca esta
@@ -244,7 +244,7 @@ char* parse_input(char* instr_buff){ //aca da error
         package->path = parameters[1];
 
         //MODE
-        package->mode = parameters[2];
+        //package->mode = parameters[2];
 
         //printf("\n Datos de paquete:\n instruction: %s\n Table name: %s\n Key: %d\n", package->instruction, package->table_name,package->key);
         char* response = action_mkdir(package);
@@ -252,7 +252,7 @@ char* parse_input(char* instr_buff){ //aca da error
         return response;
     }
 
-    if(!strcmp(parameters[0],"WRITE")){
+    if(!strcmp(parameters[0],"write")){
         
         if(parameters_length != 3){
             printf("numero de parametros incorrecto\n");
@@ -285,7 +285,7 @@ char* parse_input(char* instr_buff){ //aca da error
         return response;
     }
 
-    if(!strcmp(parameters[0],"OPENDIR")){
+    if(!strcmp(parameters[0],"opendir")){
         
         if(parameters_length != 3){
             printf("numero de parametros incorrecto\n");
@@ -318,7 +318,7 @@ char* parse_input(char* instr_buff){ //aca da error
         return response;
     }
 
-    if(!strcmp(parameters[0],"READDIR")){
+    if(!strcmp(parameters[0],"readdir")){
         
         if(parameters_length != 3){
             printf("numero de parametros incorrecto\n");

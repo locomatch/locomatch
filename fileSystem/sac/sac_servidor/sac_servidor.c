@@ -2,8 +2,18 @@
 
 t_log* logger;
 
+struct sac_opened_file* opened_files_table_p = NULL;
+
 int main(void) {
     printf("Corriendo el servidor\n");
+
+    //check_disc();
+    //dump_block(0);//header
+    //dump_block(1);//bitmap
+    //dump_block(2);//1er bloque de la tabla de nodos        
+    //dump_block(2);
+    //format_bitmap_nodetable();
+    //dump_file_node(2);
 
     /*CONFIG*/
     t_config* config = config_create("config");
@@ -38,7 +48,71 @@ int main(void) {
 /* action_open abre un archivo */
 char* action_open(package_open* package) {
     log_info(logger,"Se recibió una accion open");
-    return "je";
+
+    printf("El path recibido es: %s\n", package->path);
+
+    if (strcmp(package->path, "/") == 0) {
+        //es el directorio raiz 
+        log_info(logger, "el archivo encontrado es el directorio raiz");
+        char* response = "EISDIR";
+        return response; 
+    } 
+
+    //buscar el archivo
+    int file_node_number;
+    file_node_number = search_for_file(package->path);
+
+    if(file_node_number == 0) { //no existe
+        char* response = "-ENOENT";
+        return response;
+    } else {
+        //existe
+        //chequear que sea un archivo
+        int file_state = check_node_state(file_node_number);
+
+        if(file_state == 0) {
+            //el archivo fue borrado
+            char* response = "-ENOENT";
+            return response;
+        } else if( file_state == 2) {
+            //el archivo es un directorio
+            char* response = "EISDIR";
+            return response;
+        }
+
+        //cargar la info de la tabla de nodos en alguna estructura temporal con los datos del archivo
+        //y el modo en el que se abrio
+        FILE* disco = fopen("disco.bin", "r+");
+
+        int offset = file_node_number * BLOCK_SIZE;
+        fseek(disco, offset, SEEK_SET);
+
+        struct sac_file_t file_node;
+
+        fread(&file_node, sizeof(struct sac_file_t), 1, disco);
+        fclose(disco);
+
+
+        struct sac_opened_file* opened_file;
+        opened_file = (struct sac_opened_file*)malloc(sizeof(struct sac_opened_file));
+
+        //datos a cargar:
+        opened_file->mode = package->flags;
+        opened_file->state = file_state;
+        memcpy(opened_file->fname, file_node.fname, strlen(file_node.fname));
+        //opened_file->fname = file_node.fname;
+        opened_file->parent_block = file_node.parent_block;
+
+        int file_descriptor = insert_to_opened_files_table(opened_file);
+
+        //convertir file_descriptor en char
+        char* file_descriptor_s = malloc(sizeof(char) * 5);
+        sprintf(file_descriptor_s,"%d",file_descriptor);
+
+        return file_descriptor_s;
+    }
+
+    //retornar un int que represente el file descriptor
 }
 
 /* action_read leer un archivo abierto */
@@ -67,6 +141,7 @@ char* action_getattr(package_getattr* package) {
 
     if(file_node_number == 0) { //no existe
         //tengo que devolver -ENOENT
+    	log_debug(logger, "file node number es cero");
         char* response = "-ENOENT";
         return response;
     } else {
@@ -81,18 +156,18 @@ char* action_getattr(package_getattr* package) {
 
         struct sac_file_t file_node;
 
-        fread(&file_node, sizeof(struct sac_file_t), 1, disco);
+        fread(&file_node, BLOCK_SIZE, 1, disco);
 
-        if(file_node.state == 0 || file_node.state == 1) {
+        if(file_node.state == (uint8_t) 0 || file_node.state == (uint8_t) 1) {
             //entonces es un archivo regular
             log_info(logger, "el archivo encontrado es un archivo regular (puede estar borrado)");
             int file_size = file_node.filesize;
             
-            char* file_size_s; 
+            char file_size_s[5];
             sprintf(file_size_s,"%d",file_size);
-            char* response = malloc(strlen("S_IFDIR")+strlen(file_size_s)+1);
+            char* response = malloc(strlen("S_IFREG")+strlen(file_size_s)+2);
             response[0] = '\0';
-            strcat(response ,"S_IFDIR ");
+            strcat(response ,"S_IFREG ");
             strcat(response ,file_size_s);
 
             close(disco);
@@ -116,13 +191,169 @@ char* action_getattr(package_getattr* package) {
 char* action_mknod(package_mknod* package) {
     log_info(logger,"Se recibio una accion mknod");
 
-    //TODO buscar si no existe ya ese archivo -> si existe ver que retornar, si no existe sigo
+    //buscar si no existe ya ese archivo -> si existe ver que retornar, si no existe sigo
     //buscar el archivo
     int file_node_number;
     file_node_number = search_for_file(package->path);
 
+    printf("checkpoint 1\n");
+
+    //si existe pero es un archivo directorio puedo crear un archivo regular con el mismo nombre con el mismo nombre
+    int file_state;
+
+    printf("checkpoint 2\n");
+
     if(file_node_number != 0) {
-        log_info(logger, "el archivo que quiere crear ya existe");
+
+        file_state = check_node_state(file_node_number);
+
+        if(file_state == 1 || file_state == 0){
+            log_info(logger, "el archivo que quiere crear ya existe");
+            char* response = "EEXIST";
+            return response;
+        }
+    }
+    
+    printf("checkpoint 3\n");
+    //buscar si existe el directorio donde quiero crearlo -> si no existe retornar el
+    // error correspondiente, si existe guardar el nro de bloque de este directorio (ver que
+    // hacer cuando este es 0) Tambien confirmar que sea un directorio.
+    
+    int directory_node_number;
+
+    //obtener el path del directorio nomas
+    char** path_array = string_split(package->path, "/");
+
+    printf("checkpoint 4\n");
+
+    int path_array_length = 0;
+    while (path_array[path_array_length] != NULL){
+        path_array_length++;
+    }
+
+    printf("checkpoint 5\n");
+    int path_file_name_length = strlen(path_array[path_array_length - 1]);
+
+    //char* file_name = path_array[path_array_length - 1];
+    char* file_name = malloc(sizeof(char) * path_file_name_length + 1);
+    file_name[0] = '\0';
+    strcat(file_name , path_array[path_array_length - 1]);
+
+    printf("checkpoint 6\n");
+
+    int file_name_length = strlen(file_name);
+
+    //control del largo del filename
+    if(file_name_length > MAX_FILENAME_LENGTH) {
+        log_info(logger, "el largo del nombre del archivo es mayor al permitido");
+        char* response = "ENAMETOOLONG";
+        return response;
+    }
+
+    printf("checkpoint 7\n");
+    
+    if(path_array_length == 1) {
+        //el directorio es el directorio raiz
+        directory_node_number = 0;
+    } else {
+        //crear path auxiliar para buscar el directorio
+
+        printf("checkpoint 8\n");
+
+        char* aux_path = malloc(strlen(package->path) - file_name_length + 1);
+        aux_path[0] = '\0';
+        strcat(aux_path ,"/");
+
+        printf("checkpoint 9\n");
+
+        int aux_path_length = path_array_length - 1;
+        for(int i = 0; i < aux_path_length; i++) {
+            strcat(aux_path ,path_array[i]);
+            strcat(aux_path ,"/");
+        }
+
+        printf("El aux_path (path del directorio) es: %s\n", aux_path);
+
+        directory_node_number = search_for_file(aux_path);
+
+        if(directory_node_number == 0) {
+            log_info(logger, "el directorio donde quiere crear el archivo no existe");
+            char* response = "ENOENT";
+            return response;
+        }
+
+        printf("checkpoint 10\n");
+
+        //el nodo del directorio existe pero hay que comprobar que sea un directorio
+        int directory_state = check_node_state(directory_node_number);
+
+        if(directory_state != 2) {
+            log_info(logger, "el directorio donde quiere crear el archivo no es un directorio");
+            char* response = "ENOTDIR";
+            return response;
+        }
+    }
+
+    printf("checkpoint 11\n");
+    //buscar un bloque libre (dentro de la tabla de nodos)
+    int free_block = find_free_block(0); // 0 -> node table
+
+    dump_block(1);
+
+    printf("checkpoint 12 el free block es el: %d\n", free_block);
+
+    //cambio el bitmap para que lo muestre como ocupado
+    set_block_as_occupied(free_block);
+
+    dump_block(1);
+
+    printf("checkpoint 13\n");
+
+    //cargar un nodo con los datos del nuevo archivo y escribirlo en la tabla de nodos
+    struct sac_file_t file_node;
+    file_node.state = 1; //ocupado
+    memcpy(file_node.fname, file_name, file_name_length);
+    //file_node.fname = file_name;
+    file_node.parent_block = directory_node_number;
+    file_node.filesize = 0;
+    file_node.created = time(NULL);
+    file_node.modified = time(NULL);
+    file_node.blocks[0] = '\0';
+
+    printf("checkpoint 14\n");
+
+    //hacer fopen fwrite y fclose del disco
+    FILE* disco = fopen("disco.bin", "r+");
+
+    int offset = BLOCK_SIZE * free_block;
+    fseek(disco, offset, SEEK_SET); //en la posicion del bloque libre
+
+    fwrite(&file_node, BLOCK_SIZE, 1, disco);
+
+    fclose(disco);
+
+    printf("checkpoint 15\n");
+
+    char* response = malloc(sizeof(char)*2);
+    //response[0] = '\0';
+    sprintf(response,"%d",free_block);
+
+    return response;
+}
+
+/* action_mkdir crea un directorio */
+char* action_mkdir(package_mkdir* package) {
+    log_info(logger,"Se recibio una accion mkdir");
+    
+    //buscar el archivo
+    int file_node_number;
+    file_node_number = search_for_file(package->path);
+
+    //TODO si existe pero es un archivo regular puedo crear un directorio con el mismo nombre
+    int file_state = check_node_state(file_node_number);
+
+    if(file_node_number != 0 && file_state == 2) {
+        log_info(logger, "el directorio que quiere crear ya existe");
         char* response = "EEXIST";
         return response;
     }
@@ -141,8 +372,10 @@ char* action_mknod(package_mknod* package) {
         path_array_length++;
     }
 
+    int path_file_name_length = strlen(path_array[path_array_length - 1]);
+
     //char* file_name = path_array[path_array_length - 1];
-    char* file_name = malloc(sizeof(char) * path_array_length + 1);
+    char* file_name = malloc(sizeof(char) * path_file_name_length + 1);
     file_name[0] = '\0';
     strcat(file_name , path_array[path_array_length - 1]);
 
@@ -150,7 +383,7 @@ char* action_mknod(package_mknod* package) {
 
     //control del largo del filename
     if(file_name_length > MAX_FILENAME_LENGTH) {
-        log_info(logger, "el largo del nombre del archivo es mayor al permitido");
+        log_info(logger, "el largo del nombre del directorio es mayor al permitido");
         char* response = "ENAMETOOLONG";
         return response;
     }
@@ -176,7 +409,7 @@ char* action_mknod(package_mknod* package) {
         directory_node_number = search_for_file(aux_path);
 
         if(directory_node_number == 0) {
-            log_info(logger, "el directorio donde quiere crear el archivo no existe");
+            log_info(logger, "el directorio donde quiere crear el directorio no existe");
             char* response = "ENOENT";
             return response;
         }
@@ -185,7 +418,7 @@ char* action_mknod(package_mknod* package) {
         int directory_state = check_node_state(directory_node_number);
 
         if(directory_state != 2) {
-            log_info(logger, "el directorio donde quiere crear el archivo no es un directorio");
+            log_info(logger, "el directorio donde quiere crear el directorio no es un directorio");
             char* response = "ENOTDIR";
             return response;
         }
@@ -199,7 +432,7 @@ char* action_mknod(package_mknod* package) {
 
     //cargar un nodo con los datos del nuevo archivo y escribirlo en la tabla de nodos
     struct sac_file_t file_node;
-    file_node.state = 1; //ocupado
+    file_node.state = 2; //directorio
     memcpy(file_node.fname, file_name, file_name_length);
     //file_node.fname = file_name;
     file_node.parent_block = directory_node_number;
@@ -219,12 +452,6 @@ char* action_mknod(package_mknod* package) {
     fclose(disco);
 
     return "0";
-}
-
-/* action_mkdir crea un directorio */
-char* action_mkdir(package_mkdir* package) {
-    log_info(logger,"Se recibio una accion mkdir");
-    return "jo";
 }
 
 /* action_write escribe en un archivo abierto */
@@ -297,7 +524,7 @@ char** parse_path(char* path){
     } 
 
     //int instruction_size = strlen( parameters[0])+1;
-    string_to_upper(path_array[0]);
+    //string_to_upper(path_array[0]);
 
     int path_array_length = 0;
 
@@ -355,7 +582,7 @@ int find_node(char** path_array) {
     //abro el disco y leo desde el primer nodo de la tabla de nodos hasta el último de la tabla de nodos
 
     for(int i=0; i<=1023; i++) {
-        fread(&current_node, sizeof(struct sac_file_t), 1, disco);
+        fread(&current_node, BLOCK_SIZE, 1, disco);
 
         //comparo el ultimo string de path_array con el nombre del archivo
         if(strcmp(current_node.fname, path_array[path_array_length - 1]) == 0) {
@@ -443,7 +670,7 @@ int find_node(char** path_array) {
 
     if(flag_found == 0) {
         //encontre el nodo
-        return match_found;
+        return posible_matches[match_found];
     } else {
         //no encontre el archivo
         return 0;
@@ -470,6 +697,8 @@ int check_node_state(int directory_node_number) {
 
 int find_free_block(int area) {
 
+    printf("checkpoint 11 a\n");
+
     //defino donde esta el bitmap (es el segundo bloque)
     int bitmap_offset = BLOCK_SIZE;
     //TODO ver que el bitmap esta definido en el header del fs -> tendria que leerlo de ahi calcular donde esta y seguir
@@ -482,6 +711,10 @@ int find_free_block(int area) {
     fread(bitmap ,sizeof(char) ,BLOCK_SIZE ,disco); //TODO si cambia el tamaño del bitmap tengo que reemplazar BLOCK_SIZE por el tamaño del bitmap
     fclose(disco);
 
+    printf("checkpoint 11 b\n");
+
+    //printf("el bitmap es:\n %s\n", bitmap);
+    
     //defino segun el place el area del bitmap donde voy a buscar (la parte que corresponde a la tabla de 
     //nodos o la parte que corresponde a los bloques de datos)
     //TODO si los tamaños varian ver como ajustar
@@ -498,13 +731,24 @@ int find_free_block(int area) {
         area_end = 32767;
     }
 
+    printf("checkpoint 11 c\n");
+
+    t_bitarray* bitarray = bitarray_create_with_mode(bitmap, 4096, LSB_FIRST);
+    
     //recorro el bitmap en esa seccion buscando un 0, si lo encuentro devuelvo su posición, sino devuelvo 0
     for(int i = area_start; i<=area_end ;i++) {
-        if(bitarray_test_bit(bitmap, i)){ //recorro todo el bitmap buscando un 0 if(bitmap[i]=='0')
+        //printf("checkpoint 11 c for loop\n");
+        
+
+        if(bitarray_test_bit(bitarray, i) == 0){ //recorro todo el bitmap buscando un 0 if(bitmap[i]=='0')
+            printf("checkpoint 11 c iteration number %d\n", i);
+            
             free(bitmap);
             return i; //devuelvo el indice del primer bloque libre que encuentro -> es el numero de bloque libre
         }
     }
+
+    printf("checkpoint 11 d\n");    
 
     //si no encontró un bloque libre
     free(bitmap);
@@ -523,16 +767,136 @@ void set_block_as_occupied(int block_number) {
     fseek(disco, bitmap_offset, SEEK_SET);
 
     char* bitmap = malloc(BLOCK_SIZE + 1);
-    fread(bitmap, sizeof(char), BLOCK_SIZE, disco); //TODO si cambia el tamaño del bitmap tengo que reemplazar BLOCK_SIZE por el tamaño del bitmap
+    fread(bitmap, BLOCK_SIZE, 1, disco); //TODO si cambia el tamaño del bitmap tengo que reemplazar BLOCK_SIZE por el tamaño del bitmap
+
+
+    printf("EL BITMAP ES :\n");
+
+    int row = 1;
+    int end = strlen(bitmap);
+    for(int k=0; k<end; k=k+8 ) {
+
+        printf("ROW %d - : ", row);
+
+        chartobin(bitmap[k]);
+        chartobin(bitmap[k+1]);
+        chartobin(bitmap[k+2]);
+        chartobin(bitmap[k+3]);
+        chartobin(bitmap[k+4]);
+        chartobin(bitmap[k+5]);
+        chartobin(bitmap[k+6]);
+        chartobin(bitmap[k+7]);
+        
+
+        printf("\n");
+
+        row++;
+
+    }
+
+    t_bitarray* bitarray = bitarray_create_with_mode(bitmap, 4096, LSB_FIRST);
 
     //bitmap[block_number] = '1';
-    bitarray_set_bit(bitmap, block_number);
 
-    fwrite(bitmap, sizeof(char), BLOCK_SIZE, disco); //TODO ver de estar haciendo bien el read write
+    bitarray_set_bit(bitarray, block_number);
+
+    printf("//////////////////setting bitearray////////////////////////\n");
+    int rowb = 1;
+    int endb = strlen(bitarray->bitarray);
+    for(int k=0; k<endb; k=k+8 ) {
+
+        printf("ROW %d - : ", rowb);
+
+        chartobin(bitarray->bitarray[k]);
+        chartobin(bitarray->bitarray[k+1]);
+        chartobin(bitarray->bitarray[k+2]);
+        chartobin(bitarray->bitarray[k+3]);
+        chartobin(bitarray->bitarray[k+4]);
+        chartobin(bitarray->bitarray[k+5]);
+        chartobin(bitarray->bitarray[k+6]);
+        chartobin(bitarray->bitarray[k+7]);
+        
+
+        printf("\n");
+
+        rowb++;
+
+    }
+    printf("///////////////////////////////////////////////////////////\n");
+
+    //bitmap = bitarray->bitarray;
+
+    fseek(disco, bitmap_offset, SEEK_SET);
+
+    fwrite(bitarray->bitarray, BLOCK_SIZE, 1, disco); //TODO ver de estar haciendo bien el read write
     fclose(disco);
     free(bitmap);
     return;
 }
+
+int insert_to_opened_files_table( struct sac_opened_file* opened_file){
+
+    int fd = 1;
+
+    if (opened_files_table_p == NULL) { //la tabla de archivos abiertos esta vacia - agrego archivo abierto nuevo
+        
+        printf("La tabla de archivos abiertos está vacia\n");
+        
+        struct sac_opened_file* new_nodo_file;
+        new_nodo_file = (struct sac_opened_file*)malloc(sizeof(struct sac_opened_file));
+
+        //datos a cargar:
+        new_nodo_file->fd = fd;
+        new_nodo_file->mode = opened_file->mode;
+        new_nodo_file->state = opened_file->state;
+        //strncpy(new_nodo_file->fname, opened_file->fname, MAX_FILENAME_LENGTH);
+        //new_nodo_file->fname[MAX_FILENAME_LENGTH - 1] = '\0';
+        memcpy(new_nodo_file->fname, opened_file->fname, MAX_FILENAME_LENGTH);
+        //new_nodo_file->fname = opened_file->fname;
+        new_nodo_file->parent_block = opened_file->parent_block;
+        new_nodo_file->next = NULL;
+
+        //agrego el archivo a la tabla de archivos abiertos
+        opened_files_table_p = new_nodo_file;
+
+    } else { //la tabla de archivos abiertos no esta vacia
+
+        printf("La tabla de archivos abiertos no esta vacia\n");
+
+        struct sac_opened_file* aux_node;
+        aux_node = opened_files_table_p;
+
+        while(aux_node->next != NULL) { //avanzo hasta el final
+            
+            aux_node = aux_node->next;
+
+        }
+
+        fd = aux_node->fd + 1;
+
+        //agrego el archivo abierto a la tabla
+        struct sac_opened_file* new_nodo_file;
+        new_nodo_file = (struct sac_opened_file*)malloc(sizeof(struct sac_opened_file));
+
+        //datos a cargar:
+        new_nodo_file->fd = fd;
+        new_nodo_file->mode = opened_file->mode;
+        new_nodo_file->state = opened_file->state;
+        memcpy(new_nodo_file->fname, opened_file->fname, strlen(opened_file->fname));
+        //new_nodo_file->fname = opened_file->fname;
+        new_nodo_file->parent_block = opened_file->parent_block;
+        new_nodo_file->next = NULL;
+
+        //agrego el archivo a la tabla de archivos abiertos
+        aux_node->next = new_nodo_file;
+
+    }
+
+    return fd;
+}
+
+
+///////////////////////////////////////////////////////////////////
 
 /*
 void set_block_as_free(int block_number) {
@@ -548,3 +912,126 @@ void set_block_as_free(int block_number) {
     return;
 }
 */
+
+/*void check_disc() {
+    FILE* disco = fopen("disco.bin", "r+"); //TODO ver con que permisos lo tengo que abrir
+    fseek(disco, 0, SEEK_SET);
+
+    struct sac_header_t header;
+
+    fread(&header,BLOCK_SIZE, 1, disco);
+
+    printf("el header id es: %s\n",header.id);
+    printf("la version es : %d", header.version);
+    printf("el bitmap start es : %d", header.bitmap_start);
+    printf("el bitmap size es : %d", header.bitmap_size);
+
+    fclose(disco);
+    
+}*/
+
+void dump_block(int b) {
+    FILE* disco = fopen("disco.bin", "r+"); //TODO ver con que permisos lo tengo que abrir
+
+    int offset = b * BLOCK_SIZE;
+
+    fseek(disco, offset, SEEK_SET);
+
+    struct sac_block_t bitmap_block;
+
+    int end = BLOCK_SIZE - 1;
+
+    fread(&bitmap_block, BLOCK_SIZE, 1, disco);
+
+    int row = 1;
+
+    for(int k=0; k<end; k=k+8 ) {
+
+        printf("ROW %d - : ", row);
+
+        chartobin(bitmap_block.bytes[k]);
+        chartobin(bitmap_block.bytes[k+1]);
+        chartobin(bitmap_block.bytes[k+2]);
+        chartobin(bitmap_block.bytes[k+3]);
+        chartobin(bitmap_block.bytes[k+4]);
+        chartobin(bitmap_block.bytes[k+5]);
+        chartobin(bitmap_block.bytes[k+6]);
+        chartobin(bitmap_block.bytes[k+7]);
+        
+
+        printf("\n");
+
+        row++;
+
+    }
+
+
+    fclose(disco);
+}
+
+void chartobin(char c) {
+    int i;
+    for(i=0; i<=7; i++){
+        putchar((c & (1 << i)) ? '1' : '0');
+    }
+    printf(" ");
+}
+
+void format_bitmap_nodetable() {
+    
+    FILE* disco = fopen("disco.bin", "r+"); //TODO ver con que permisos lo tengo que abrir
+
+    int offset = 1 * BLOCK_SIZE;
+
+    fseek(disco, offset, SEEK_SET);
+
+    struct sac_block_t bitmap_block;
+
+    fread(&bitmap_block, BLOCK_SIZE, 1, disco);
+
+    t_bitarray* bitarray = bitarray_create_with_mode(bitmap_block.bytes, 4096, LSB_FIRST);
+
+    int area_start = 2;
+    int area_end = 4096;
+
+    for(int i = area_start; i<=area_end ;i++) { 
+        if(bitarray_test_bit(bitarray, i) == 1){ 
+            bitarray_clean_bit(bitarray, i);
+        }
+    }
+
+    //escribo
+    fseek(disco, offset, SEEK_SET);
+    
+    fwrite(bitarray->bitarray, BLOCK_SIZE, 1, disco); //TODO ver de estar haciendo bien el read write
+    fclose(disco);
+
+    dump_block(1);
+    
+    return;
+}
+
+void dump_file_node(int block_number) {
+
+    FILE* disco = fopen("disco.bin", "r+"); //TODO ver con que permisos lo tengo que abrir
+
+    int offset = block_number * BLOCK_SIZE;
+
+    fseek(disco, offset, SEEK_SET);
+
+    struct sac_file_t file_node;
+
+    fread(&file_node, BLOCK_SIZE, 1, disco);
+
+    printf("\n\n");
+    printf("Dumpeando el bloque nro %d de la tabla de nodos\n", block_number);
+    printf("El estado es: %d\n", file_node.state);
+    printf("El nombre es: %s\n", file_node.fname);
+    printf("El padre es: %d\n", file_node.parent_block);
+    printf("El tamaño es: %d\n", file_node.filesize);
+    printf("El creado es: %d\n", file_node.created);
+    printf("El modificado es: %d\n", file_node.modified);
+
+    return;
+
+}
