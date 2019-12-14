@@ -36,7 +36,7 @@ int suse_schedule_next(void){
 		t_list *parametros = list_create();
 		parametros = recibir_paquete(suse_socket);
 		tid = atoi((char*)list_get(parametros, 0));
-		list_destroy_and_destroy_elements(parametros, (void*) free)
+		list_destroy_and_destroy_elements(parametros, (void*) free);
 	}
 
 	return tid;
