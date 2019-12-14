@@ -96,7 +96,7 @@ void *schedule_short_term(void *arg){
 			case SUSE_WAIT:
 				parametros = recibir_paquete(self->socket);
 				tid = atoi(list_get(parametros, 0));
-				sem = (char*)list_get(parametros, 1);
+				sem = strdup(list_get(parametros, 1));
 				log_debug(logger, "[ProgramID: %d] Operacion Recibida - SUSE_WAIT tid: %d , sem: %s", self->id, tid, sem);
 				suse_wait(atoi(list_get(parametros, 0)), sem, self);
 				free(sem);
