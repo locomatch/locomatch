@@ -242,7 +242,7 @@ void suse_signal(int tid, char* sem_name, t_program *program){
 	t_semaforo *semaforo = get_semaforo(sem_name);
 
 	pthread_mutex_lock(&semaforo->sem_mutex);
-	semaforo->valor++;
+	if(semaforo->valor < semaforo->max_value) semaforo->valor++;
 	if(semaforo->valor <= 0){
 		wakeup(semaforo);
 		return;
@@ -903,6 +903,7 @@ t_semaforo *create_semaforo(t_config_semaforo *config_semaforo){
 
 	semaforo->id = strdup(config_semaforo->id);
 	semaforo->valor = config_semaforo->init;
+	semaforo->max_value = config_semaforo->max;
 	semaforo->blocked = list_create();
 	pthread_mutex_init(&semaforo->sem_mutex, NULL);
 
