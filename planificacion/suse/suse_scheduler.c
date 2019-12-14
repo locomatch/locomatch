@@ -105,7 +105,7 @@ void *schedule_short_term(void *arg){
 			case SUSE_SIGNAL:
 				parametros = recibir_paquete(self->socket);
 				tid = atoi(list_get(parametros, 0));
-				sem = (char*)list_get(parametros, 1);
+				sem = strdup(list_get(parametros, 1));
 				log_debug(logger, "[ProgramID: %d] Operacion Recibida - SUSE_SIGNAL tid: %d , sem: %s", self->id, tid, sem);
 				suse_signal(tid, sem, self);
 				free(sem);
