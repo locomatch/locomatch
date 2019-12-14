@@ -49,7 +49,7 @@ typedef struct {
 typedef struct {
     char* instruction;
     char* path;
-    char* mode;
+    char* flags;
 } package_opendir;
 
 typedef struct {

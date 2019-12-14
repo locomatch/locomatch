@@ -350,12 +350,17 @@ char* action_mkdir(package_mkdir* package) {
     file_node_number = search_for_file(package->path);
 
     //TODO si existe pero es un archivo regular puedo crear un directorio con el mismo nombre
-    int file_state = check_node_state(file_node_number);
+    int file_state;
 
-    if(file_node_number != 0 && file_state == 2) {
-        log_info(logger, "el directorio que quiere crear ya existe");
-        char* response = "EEXIST";
-        return response;
+    if(file_node_number != 0) {
+
+        file_state; = check_node_state(file_node_number);
+
+        if(file_state == 2) {
+            log_info(logger, "el directorio que quiere crear ya existe");
+            char* response = "EEXIST";
+            return response;
+        }
     }
     
     //buscar si existe el directorio donde quiero crearlo -> si no existe retornar el
@@ -451,7 +456,10 @@ char* action_mkdir(package_mkdir* package) {
 
     fclose(disco);
 
-    return "0";
+    char* response = malloc(sizeof(char)*2);
+    sprintf(response,"%d",free_block);
+
+    return response;
 }
 
 /* action_write escribe en un archivo abierto */
@@ -463,7 +471,72 @@ char* action_write(package_write* package) {
 /* action_opendir abre un directorio */
 char* action_opendir(package_opendir* package) {
     log_info(logger,"Se recibio una accion opendir");
-    return "jo";
+    
+    printf("El path recibido es: %s\n", package->path);
+
+    if (strcmp(package->path, "/") == 0) {
+        //TODO es el directorio raiz ver que hacer
+        log_info(logger, "el archivo encontrado es el directorio raiz");
+        char* response = "EISDIR";
+        return response; 
+    } 
+
+    //buscar el archivo
+    int file_node_number;
+    file_node_number = search_for_file(package->path);
+
+    if(file_node_number == 0) { //no existe
+        char* response = "-ENOENT";
+        return response;
+    } else {
+        //existe
+        //chequear que sea un archivo
+        int file_state = check_node_state(file_node_number);
+
+        if(file_state == 0) {
+            //el archivo fue borrado
+            char* response = "-ENOENT";
+            return response;
+        } else if( file_state == 1) {
+            //TODO el directorio es un archivo ver que hacer
+            char* response = "EISDIR";
+            return response;
+        }
+
+        //cargar la info de la tabla de nodos en alguna estructura temporal con los datos del archivo
+        //y el modo en el que se abrio
+        FILE* disco = fopen("disco.bin", "r+");
+
+        int offset = file_node_number * BLOCK_SIZE;
+        fseek(disco, offset, SEEK_SET);
+
+        struct sac_file_t file_node;
+
+        fread(&file_node, sizeof(struct sac_file_t), 1, disco);
+        fclose(disco);
+
+
+        struct sac_opened_file* opened_file;
+        opened_file = (struct sac_opened_file*)malloc(sizeof(struct sac_opened_file));
+
+        //datos a cargar:
+        opened_file->mode = package->flags;
+        opened_file->state = file_state;
+        memcpy(opened_file->fname, file_node.fname, strlen(file_node.fname));
+        //opened_file->fname = file_node.fname;
+        opened_file->parent_block = file_node.parent_block;
+
+        int file_descriptor = insert_to_opened_files_table(opened_file);
+
+        //convertir file_descriptor en char
+        char* file_descriptor_s = malloc(sizeof(char) * 5);
+        sprintf(file_descriptor_s,"%d",file_descriptor);
+
+        return file_descriptor_s;
+    }
+
+    //retornar un int que represente el file descriptor
+    
 }
 
 /* action_readdir abre un directorio */

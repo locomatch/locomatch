@@ -353,10 +353,58 @@ int sac_write(char* msg) {
 }
 
 /* sac_opendir abre un directorio */
-int sac_opendir(char* msg) {
+static int sac_opendir(const char *path, struct fuse_file_info *fi) {
     log_info(logger,"Se recibio una instruccion opendir");
+
+    //a sac_cli yo le voy a mandar el path y las flags de fi y me va a devolver un int que es el file descriptor
+
+    int flags = fi->flags;
+    char flags_s[10]; 
+    sprintf(flags_s,"%d",flags);
+
+    char* msg = malloc(strlen("opendir ")+strlen(path)+strlen(" ")+strlen(flags_s)+2);
+    msg[0] = '\0';
+    strcat(msg ,"opendir ");
+    strcat(msg ,path);
+    strcat(msg ," ");
+    strcat(msg ,flags_s);
+
+    log_info(logger, "El mensaje a enviar es: %s", msg);
+
     sac_send(msg, serverSocket);
-    return 0;
+
+    free(msg);
+
+    //obtener el responce para cargar la estructura que tiene que devolver esta garompa
+    char* response_buff = malloc(100);
+    response_buff[0] = '\0';
+    read(serverSocket, response_buff, 100);
+
+    printf("el response_buff dice esto: %s\n", response_buff);
+
+    if(strcmp(response_buff,"EISDIR") == 0) {
+        //TODO es un archivo regular //es un directorio
+        log_info(logger, "El archivo que se intenta abrir es un directorio");
+        errno = EISDIR;
+        return -1;
+    } else if (strcmp(response_buff,"-ENOENT") == 0) {
+        //no existe o fue borrado
+        log_info(logger, "El archivo que se intenta abrir no existe o fue borrado");
+        errno = ENOENT;
+        return -1;
+
+        //TODO creo que tenia que setear errno y retornar -1   <-- VER ESTO
+
+    } else {
+        //retorno un string que contiene el file descriptor
+        int file_descriptor = 0;
+
+        if(response_buff[0] == '\0') {
+        	file_descriptor = atoi(response_buff);
+        }
+
+        return file_descriptor;
+    }
 }
 
 /* sac_readdir abre un directorio */

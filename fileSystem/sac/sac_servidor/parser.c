@@ -310,7 +310,7 @@ char* parse_input(char* instr_buff){ //aca da error
         package->path = parameters[1];
 
         //MODE
-        package->mode = parameters[2];
+        package->flags = parameters[2];
 
         //printf("\n Datos de paquete:\n instruction: %s\n Table name: %s\n Key: %d\n", package->instruction, package->table_name,package->key);
         char* response = action_opendir(package);
