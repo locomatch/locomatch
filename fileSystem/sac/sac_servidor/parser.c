@@ -122,7 +122,7 @@ char* parse_input(char* instr_buff){ //aca da error
 
     if(!strcmp(parameters[0],"read")){
         
-        if(parameters_length != 3){
+        if(parameters_length != 4){
             printf("numero de parametros incorrecto\n");
             kill_args();
             //exec_err_abort(); TODO ver para que sirve y en que biblioteca esta
@@ -144,8 +144,11 @@ char* parse_input(char* instr_buff){ //aca da error
         //string_to_upper(parameters[1]);
         package->path = parameters[1];
 
-        //MODE
-        package->mode = parameters[2];
+        //SIZE
+        package->size = parameters[2];
+
+        //OFFSET
+        package->offset = parameters[3];
 
         //printf("\n Datos de paquete:\n instruction: %s\n Table name: %s\n Key: %d\n", package->instruction, package->table_name,package->key);
         char* response = action_read(package);
@@ -254,7 +257,7 @@ char* parse_input(char* instr_buff){ //aca da error
 
     if(!strcmp(parameters[0],"write")){
         
-        if(parameters_length != 3){
+        if(parameters_length != 5){
             printf("numero de parametros incorrecto\n");
             kill_args();
             //exec_err_abort(); TODO ver para que sirve y en que biblioteca esta
@@ -277,7 +280,15 @@ char* parse_input(char* instr_buff){ //aca da error
         package->path = parameters[1];
 
         //MODE
-        package->mode = parameters[2];
+        package->buf = parameters[2];
+
+
+        //MODE
+        package->size_s = parameters[3];
+
+
+        //MODE
+        package->offset_s = parameters[4];
 
         //printf("\n Datos de paquete:\n instruction: %s\n Table name: %s\n Key: %d\n", package->instruction, package->table_name,package->key);
         char* response = action_write(package);

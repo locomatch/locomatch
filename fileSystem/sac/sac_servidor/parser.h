@@ -19,7 +19,8 @@ typedef struct {
 typedef struct {
     char* instruction;
     char* path;
-    char* mode;
+    char* size;
+    char* offset;
 } package_read;
 
 typedef struct {
@@ -43,7 +44,9 @@ typedef struct {
 typedef struct {
     char* instruction;
     char* path;
-    char* mode;
+    char* buf;
+    char* size_s;
+    char* offset_s;
 } package_write;
 
 typedef struct {

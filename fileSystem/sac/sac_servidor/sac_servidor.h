@@ -53,6 +53,7 @@ typedef struct sac_file_t {
 // Entrada en la tabla de archivos abiertos:
 struct sac_opened_file {
     uint16_t fd; // file descriptor
+    uint32_t node_block; //bloque de nodos donde esta el archivo
     uint8_t mode; // modo en el que se abrio
     uint8_t state; // 0:borrado 1:ocupado 2:directorio
     unsigned char fname[MAX_FILENAME_LENGTH];
@@ -82,6 +83,7 @@ int find_node(char** path_array);
 int check_node_state(int directory_node_number);
 int find_free_block(int place); // place = 0 node table ; place = 1 data blocks
 void set_block_as_occupied(int block_number);
+char* read_block(int block, int offset);
 
 int insert_to_opened_files_table(struct sac_opened_file* opened_file);
 

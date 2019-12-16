@@ -181,10 +181,61 @@ static int sac_open(const char *path, struct fuse_file_info *fi) {
 }
 
 /* sac_read leer un archivo abierto */
-int sac_read(char* msg) {
+static int sac_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
     log_info(logger,"Se recibio una instruccion read");
+
+
+    //necesito pasar el size y offset tambien ver que hacer con el buffer
+    char size_s[16]; //TODO ver que permita el tamaño maximo de size
+    sprintf(size_s,"%d",size);
+
+    char offset_s[16]; //TODO ver que permita el tamaño maximo de offset
+    sprintf(offset_s,"%d",offset);
+
+    //el buf voy a cargar con la respuesta, size es la cantidad que voy a leer, offset es lo que me voy a correr
+    char* msg = malloc(strlen("read ")+strlen(path)+strlen(" ")+strlen(size_s)+strlen(" ")+strlen(offset_s)+2);
+    msg[0] = '\0';
+    strcat(msg ,"read ");
+    strcat(msg ,path);
+    strcat(msg ," ");
+    strcat(msg ,size_s);
+    strcat(msg ," ");
+    strcat(msg ,offset_s);    
+
+    log_info(logger, "El mensaje a enviar es: %s", msg);
+
     sac_send(msg, serverSocket);
-    return 0;
+    free(msg);
+
+    //obtener el responce para cargar la estructura que tiene que devolver esta garompa
+    //char* response_buff = malloc(100); //TODO ver de poder leer todo lo que lei
+    //response_buff[0] = '\0';
+    read(serverSocket, buf, 100);
+
+    //printf("el response_buff dice esto: %s\n", response_buff);
+
+    if(strcmp(buf,"EISDIR") == 0) {
+        //es un directorio
+        log_info(logger, "El archivo que se intenta leer es un directorio");
+        errno = EISDIR;
+        return -1;
+    } else if (strcmp(buf,"EBADF") == 0) {
+        //no existe o fue borrado
+        log_info(logger, "El archivo que se intenta leer no existe o fue borrado");
+        errno = EBADF;
+        return -1;
+    } else if (strcmp(buf,"EOVERFLOW") == 0) {
+        //no existe o fue borrado
+        log_info(logger, "overfow");
+        errno = EOVERFLOW;
+        return -1;
+    } else if (strcmp(buf,"emptyfile") == 0) {
+        //el archivo esta vacio
+        log_info(logger, "El archivo que se intenta leer esta vacío");
+        return '\0';
+    } else {
+        return buf;
+    }
 }
 
 /* sac_getattr obtiene los atributos de un archivo */
@@ -346,10 +397,54 @@ static int sac_mkdir(char* path, mode_t mode) {
 }
 
 /* sac_write escribe en un archivo abierto */
-int sac_write(char* msg) {
+static int sac_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
     log_info(logger,"Se recibio una instruccion write");
+
+    //voy a mandar path buf size offset
+    char size_s[16]; //TODO ver que permita el tamaño maximo de size
+    sprintf(size_s,"%d",size);
+
+    char offset_s[16]; //TODO ver que permita el tamaño maximo de offset
+    sprintf(offset_s,"%d",offset);
+
+    char* msg = malloc(strlen("write ")+strlen(path)+strlen(" ")+strlen(buf)+strlen(" ")+strlen(size_s)+strlen(" ")+strlen(offset_s)+2);
+    msg[0] = '\0';
+    strcat(msg ,"write ");
+    strcat(msg ,path);
+    strcat(msg ," ");
+    strcat(msg ,buf);
+    strcat(msg ," ");
+    strcat(msg ,size_s);
+    strcat(msg ," ");
+    strcat(msg ,offset_s);
+
+    log_info(logger, "El mensaje a enviar es: %s", msg);
+
     sac_send(msg, serverSocket);
-    return 0;
+    free(msg);
+
+    //obtener el responce para cargar la estructura que tiene que devolver esta garompa
+    char* response_buff = malloc(100); //TODO ver de poder leer todo lo que lei
+    response_buff[0] = '\0';
+    read(serverSocket, response_buff, 100);
+
+    //printf("el response_buff dice esto: %s\n", response_buff);
+
+    if(strcmp(buf,"EISDIR") == 0) {
+        //es un directorio
+        log_info(logger, "El archivo que se intenta escribir es un directorio");
+        errno = EISDIR;
+        return -1;
+    } else if (strcmp(buf,"EBADF") == 0) {
+        //no existe o fue borrado
+        log_info(logger, "El archivo que se intenta escribir no existe o fue borrado");
+        errno = EBADF;
+        return -1;
+    } else {
+
+        int response = atoi(response_buff);
+        return response;
+    }
 }
 
 /* sac_opendir abre un directorio */

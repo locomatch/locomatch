@@ -103,6 +103,8 @@ char* action_open(package_open* package) {
         //opened_file->fname = file_node.fname;
         opened_file->parent_block = file_node.parent_block;
 
+        opened_file->node_block = file_node_number;
+
         int file_descriptor = insert_to_opened_files_table(opened_file);
 
         //convertir file_descriptor en char
@@ -118,7 +120,123 @@ char* action_open(package_open* package) {
 /* action_read leer un archivo abierto */
 char* action_read(package_read* package) {
     log_info(logger,"Se recibio una accion read");
-    return "ja";
+
+    //ver si existe el archivo que se quiere leer
+    printf("El path recibido es: %s\n", package->path);
+
+    if (strcmp(package->path, "/") == 0) {
+        //devolver lo que corresponda al directorio raiz 
+        log_info(logger, "el archivo encontrado es el directorio raiz");
+        char* response = "EISDIR";
+        return response;
+    } 
+
+    //buscar el archivo
+    int file_node_number;
+    file_node_number = search_for_file(package->path);
+
+    if(file_node_number == 0) {
+        //el archivo no existe
+    	log_debug(logger, "el archivo no existe");
+        char* response = "EBADF";
+        return response;
+    } else {
+
+        int file_state = check_node_state(file_node_number);
+        if(file_state == 0) {
+            //el archivo fue borrado
+            log_debug(logger, "el archivo que intenta leer fue borrado");
+            char* response = "EBADF";
+            return response;
+        } else if(file_state == 2) {
+            //el archivo es un directorio
+            log_debug(logger, "el archivo que intenta leer es un directorio");
+            char* response = "EISDIR";
+            return response;
+        }
+
+        //chequear que esta abirto (revisar la tabla de archivos abiertos)
+        int file_descriptor = is_file_opened(file_node_number);
+
+        if(file_descriptor == 0){
+            //el archivo no esta abierto
+            log_debug(logger, "el archivo que intenta leer no esta abierto");
+            char* response = "EBADF";
+            return response;
+        }
+
+        //ver que bloques tiene asignado
+        FILE* disco = fopen("disco.bin", "r+");
+
+        int offset = file_node_number * BLOCK_SIZE;
+        fseek(disco, offset, SEEK_SET);
+
+        struct sac_file_t file_node;
+
+        fread(&file_node, BLOCK_SIZE, 1, disco);
+
+        //uint32_t blocks[1000] = file_node.blocks; /////TODO corregir
+        uint32_t blocks[1000];
+        memcpy(blocks, file_node.blocks, strlen(file_node.blocks));
+        uint32_t filesize = file_node.filesize;
+
+        //chequeo si no tiene ningun bloque asignado ver que devolver
+        if(blocks[0] == '\0') {
+            //no tiene ningun bloque asignado
+            log_debug(logger, "el archivo esta vacio");
+            char* response = "emptyfile"; //respondo cualquier cosa
+            return response;
+        }
+
+        //chequear que el size a leer + el offset es menor o igual al tamaño del archivo
+        int offset_d = atoi(package->offset);
+        int size_d = atoi(package->size);
+
+        if((offset_d + size_d) > filesize) {
+            //estoy tratando de leer mas de lo que corresponde en este archivo
+            log_debug(logger, "overflow");
+            char* response = "EOVERFLOW";
+            return response;
+        }
+
+        //leer los bloques que correspondan y cargar el buffers
+        char* buff = malloc(sizeof(char) * size_d + 1);
+        buff[0] = '\0';
+
+        int size_to_read = size_d; //lo que tengo que leer en total
+        int temporal_read; //lo que tengo que leer esta vez
+
+        if(size_to_read < BLOCK_SIZE) {
+            temporal_read = size_to_read;
+        } else {
+            temporal_read = BLOCK_SIZE;
+        }
+
+        int i = 0;
+        while(offset_d > BLOCK_SIZE) {
+            i++;
+            offset_d = offset_d - BLOCK_SIZE;
+        }
+
+        while(blocks[i] != '\0') {
+            char* temporal_buff = malloc((sizeof(char) * temporal_read) - (sizeof(char) * offset_d) + 1);
+            temporal_buff = read_block(blocks[i], offset_d);
+
+            strcat(buff ,temporal_buff);
+
+            free(temporal_buff); //TODO ver si esto rompe todo
+
+            size_to_read = size_to_read - temporal_read;
+            if(size_to_read < BLOCK_SIZE) {
+                temporal_read = size_to_read;
+            }
+            offset_d = 0;
+            i++;
+        }
+        
+        return buff;
+    }
+
 }
 
 /* action_getattr obtiene los atributos de un archivo */
@@ -354,7 +472,7 @@ char* action_mkdir(package_mkdir* package) {
 
     if(file_node_number != 0) {
 
-        file_state; = check_node_state(file_node_number);
+        file_state = check_node_state(file_node_number);
 
         if(file_state == 2) {
             log_info(logger, "el directorio que quiere crear ya existe");
@@ -465,8 +583,169 @@ char* action_mkdir(package_mkdir* package) {
 /* action_write escribe en un archivo abierto */
 char* action_write(package_write* package) {
     log_info(logger,"Se recibio una accion write");
-    return "jo";
+
+    ///ver si existe el archivo que se quiere leer
+    printf("El path recibido es: %s\n", package->path);
+
+    if (strcmp(package->path, "/") == 0) {
+        //devolver lo que corresponda al directorio raiz 
+        log_info(logger, "el archivo encontrado es el directorio raiz");
+        char* response = "EISDIR";
+        return response;
+    } 
+
+    //buscar el archivo
+    int file_node_number;
+    file_node_number = search_for_file(package->path);
+
+    if(file_node_number == 0) {
+        //el archivo no existe
+    	log_debug(logger, "el archivo no existe");
+        char* response = "EBADF";
+        return response;
+    } else {
+
+        int file_state = check_node_state(file_node_number);
+        if(file_state == 0) {
+            //el archivo fue borrado
+            log_debug(logger, "el archivo que intenta leer fue borrado");
+            char* response = "EBADF";
+            return response;
+        } else if(file_state == 2) {
+            //el archivo es un directorio
+            log_debug(logger, "el archivo que intenta leer es un directorio");
+            char* response = "EISDIR";
+            return response;
+        }
+
+        //chequear que esta abirto (revisar la tabla de archivos abiertos)
+        int file_descriptor = is_file_opened(file_node_number);
+
+        if(file_descriptor == 0){
+            //el archivo no esta abierto
+            log_debug(logger, "el archivo que intenta leer no esta abierto");
+            char* response = "EBADF";
+            return response;
+        }
+
+        //Ya se que existe, que es un archivo y que esta abierto
+
+        //ver que bloques tiene asignado
+        FILE* disco = fopen("disco.bin", "r+");
+
+        int offset = file_node_number * BLOCK_SIZE;
+        fseek(disco, offset, SEEK_SET);
+
+        struct sac_file_t file_node;
+
+        fread(&file_node, BLOCK_SIZE, 1, disco);
+
+        fclose(disco);
+
+        //uint32_t blocks[1000] = file_node.blocks; /////TODO corregir
+        uint32_t blocks[1000];
+        memcpy(blocks, file_node.blocks, strlen(file_node.blocks));
+        uint32_t filesize = file_node.filesize;
+
+        //donde empiezo a escribir? -> desde el primer bloque avanzo todo el offset que haga falta
+        //(si falta mas le puedo asignar bloques hasta que la cant total de bloques sea 1000)
+        int offset_d = atoi(package->offset_s);
+        int size_d = atoi(package->size_s);
+
+        if(offset_d > file_node.filesize) {
+            offset_d = file_node.filesize; //obligo a que el offset maximo sea el tamaño del archivo
+        }
+
+        //el tamaño del archivo al finalizar va a ser:
+        int new_file_size;
+        if(offset_d + size_d > file_node.filesize) {
+            new_file_size = offset_d + size_d;
+        } else {
+            new_file_size = file_node.filesize;
+        }
+        
+        int block_position = 0;
+        while(offset_d >= BLOCK_SIZE) {
+            //avanzo un bloque hasta que el offset sea menor a el block_size
+            block_position++;
+            offset_d = offset_d - BLOCK_SIZE;
+        }
+
+        //una vez que estoy parado donde tengo que empezar a escribir voy escribiendo bloque a bloque
+        //si le faltan bloques puedo asignarle mas hasta llegar a la cant max de bloques)
+
+        //le voy a agregar la cantidad de bloques que le hagan falta al archivo
+        if(new_file_size > file_node.filesize) {
+            //entonces tengo que agregarle los bloques necesarios
+            int old_blocks_count = file_node.filesize / BLOCK_SIZE + (file_node.filesize % BLOCK_SIZE != 0); //TODO revisar que la cantidad sea correcta
+            int new_blocks_count = new_file_size / BLOCK_SIZE + (new_file_size % BLOCK_SIZE != 0); //TODO revisar que la cantidad sea correcta
+
+            int blocks_needed = new_blocks_count - old_blocks_count;
+
+            int last_block_position = 0;
+            while(file_node.blocks[last_block_position] != '\0'){
+                last_block_position++;
+            }
+
+            for(int b = blocks_needed; b > 0; b--) {//mientras siga necesitando bloques
+                //busco un bloque libre
+                int free_block = find_free_block(1); //busco un bloque libre en el area de datos
+
+                //agrego el bloque libre a blocks
+                file_node.blocks[last_block_position] = free_block;
+                file_node.blocks[last_block_position + 1] = '\0';
+
+                set_block_as_occupied(free_block);
+            }
+        }
+
+
+        int size_to_write = size_d;
+        int temporal_write = BLOCK_SIZE - offset_d;
+        int amount_written = 0;
+
+        while(size_to_write != 0) { //mientras tenga que escribir
+
+            char* temporal_string = malloc(sizeof(char) * temporal_write + 1 );
+            strncpy(temporal_string, package->buf + amount_written, temporal_write);
+
+            write_block(file_node.blocks[block_position], offset_d, temporal_string);
+
+            free(temporal_string);
+
+            amount_written = amount_written + temporal_write;
+            size_to_write = size_to_write - temporal_write;
+            if(size_to_write >= BLOCK_SIZE) {
+                temporal_write = BLOCK_SIZE;
+            } else {
+                temporal_write = size_to_write;
+            }
+        }
+
+        //aca actualizar el nodo del archivo
+        file_node.filesize = new_file_size;
+        file_node.modified = time(NULL);
+
+        //retornar lo que corresponda
+        disco = fopen("disco.bin", "r+");
+        fseek(disco, file_node_number * BLOCK_SIZE, SEEK_SET);
+
+        fwrite(&file_node, BLOCK_SIZE, 1, disco);
+
+        fclose(disco);
+
+        char* response = malloc(sizeof(char)*10);
+        //response[0] = '\0';
+        sprintf(response,"%d",amount_written);
+
+        return response;
+
+    }
 }
+
+/////////////////////////////////////////////////////////////////////////////
+//TODO AL FORMATEAR, CREAR EL NODO DEL DIRECTORIO RAIZ
+/////////////////////////////////////////////////////////////////////////////
 
 /* action_opendir abre un directorio */
 char* action_opendir(package_opendir* package) {
@@ -928,6 +1207,7 @@ int insert_to_opened_files_table( struct sac_opened_file* opened_file){
         //new_nodo_file->fname = opened_file->fname;
         new_nodo_file->parent_block = opened_file->parent_block;
         new_nodo_file->next = NULL;
+        new_nodo_file->node_block = opened_file->node_block;
 
         //agrego el archivo a la tabla de archivos abiertos
         opened_files_table_p = new_nodo_file;
@@ -959,6 +1239,7 @@ int insert_to_opened_files_table( struct sac_opened_file* opened_file){
         //new_nodo_file->fname = opened_file->fname;
         new_nodo_file->parent_block = opened_file->parent_block;
         new_nodo_file->next = NULL;
+        new_nodo_file->node_block = opened_file->node_block;
 
         //agrego el archivo a la tabla de archivos abiertos
         aux_node->next = new_nodo_file;
@@ -1107,4 +1388,66 @@ void dump_file_node(int block_number) {
 
     return;
 
+}
+
+int is_file_opened(file_node_number){
+
+    //a partir del opened_files_table_p recorro todo el array buscando si el archivo está abierto
+    //esto lo hago compartando el numero del node_block con el que me pasan porque puede haber dos archivos con el mismo nombre
+    if(opened_files_table_p == NULL) {
+        //la tabla de archivos abiertos esta vacia
+        return 0;
+    } else {
+        struct sac_opened_file* aux_p;
+        aux_p = opened_files_table_p;
+
+        while(aux_p->node_block != file_node_number) {
+            if(aux_p->next == NULL) {
+                //recorri la tabla y no lo encontre
+                return 0;
+            }
+            aux_p = aux_p->next;
+        }
+
+        return aux_p->fd;
+    }
+
+    //tengo que devolver 0 si no está abierto o el fd si esta
+}
+
+char* read_block(int block, int offset) {
+
+    //calculo el tamaño de lo que tengo que leer
+    int size = BLOCK_SIZE - offset;
+
+    //calculo la posicion desde la que tengo que leer
+    int position = (BLOCK_SIZE * block) + offset;
+
+    //abro el archivo y me paro donde tengo
+    FILE* disco = fopen("disco.bin", "r+"); //TODO ver con que permisos lo tengo que abrir
+    fseek(disco, position, SEEK_SET);
+
+    //leo la cantidad que tengo que leer y retorno lo leido
+    char* reading = malloc(size + 1);
+    fread(reading, size, 1, disco);
+
+    fclose(disco);
+
+    return reading;
+}
+
+void write_block( block_number, offset, string){
+
+    //calculo la posicion desde la que tengo que leer
+    int position = (BLOCK_SIZE * block_number) + offset;
+
+    //abro el archivo y me paro donde tengo
+    FILE* disco = fopen("disco.bin", "r+"); //TODO ver con que permisos lo tengo que abrir
+    fseek(disco, position, SEEK_SET);
+
+    fwrite(string, strlen(string), 1, disco);
+
+    fclose(disco);
+
+    return;
 }
