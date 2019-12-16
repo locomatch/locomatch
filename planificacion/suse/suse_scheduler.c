@@ -96,7 +96,7 @@ void *schedule_short_term(void *arg){
 			case SUSE_WAIT:
 				parametros = recibir_paquete(self->socket);
 				tid = atoi(list_get(parametros, 0));
-				sem = (char*)list_get(parametros, 1);
+				sem = strdup(list_get(parametros, 1));
 				log_debug(logger, "[ProgramID: %d] Operacion Recibida - SUSE_WAIT tid: %d , sem: %s", self->id, tid, sem);
 				suse_wait(atoi(list_get(parametros, 0)), sem, self);
 				free(sem);
@@ -105,7 +105,7 @@ void *schedule_short_term(void *arg){
 			case SUSE_SIGNAL:
 				parametros = recibir_paquete(self->socket);
 				tid = atoi(list_get(parametros, 0));
-				sem = (char*)list_get(parametros, 1);
+				sem = strdup(list_get(parametros, 1));
 				log_debug(logger, "[ProgramID: %d] Operacion Recibida - SUSE_SIGNAL tid: %d , sem: %s", self->id, tid, sem);
 				suse_signal(tid, sem, self);
 				free(sem);
@@ -143,8 +143,8 @@ void *schedule_short_term(void *arg){
 
 	log_debug(logger, "[FINALIZADO] Planificador de Corto Plazo: program_id = %d", self->id);
 
-	if(sem != NULL) free(sem);
-	if(parametros != NULL) list_destroy_and_destroy_elements(parametros, (void*)free);
+	//if(sem != NULL) free(sem);
+	//if(parametros != NULL) list_destroy_and_destroy_elements(parametros, (void*)free);
 
 	pthread_exit(EXIT_SUCCESS);
 }
@@ -242,7 +242,7 @@ void suse_signal(int tid, char* sem_name, t_program *program){
 	t_semaforo *semaforo = get_semaforo(sem_name);
 
 	pthread_mutex_lock(&semaforo->sem_mutex);
-	semaforo->valor++;
+	if(semaforo->valor < semaforo->max_value) semaforo->valor++;
 	if(semaforo->valor <= 0){
 		wakeup(semaforo);
 		return;
@@ -903,6 +903,7 @@ t_semaforo *create_semaforo(t_config_semaforo *config_semaforo){
 
 	semaforo->id = strdup(config_semaforo->id);
 	semaforo->valor = config_semaforo->init;
+	semaforo->max_value = config_semaforo->max;
 	semaforo->blocked = list_create();
 	pthread_mutex_init(&semaforo->sem_mutex, NULL);
 

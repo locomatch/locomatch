@@ -58,6 +58,7 @@ typedef struct {
 typedef struct {
 	char* id;
 	int valor;
+	int max_value;
 	t_list *blocked;
 	pthread_mutex_t sem_mutex;
 } t_semaforo;
