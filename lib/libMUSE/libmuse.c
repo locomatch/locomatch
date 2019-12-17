@@ -2,17 +2,18 @@
 #include "sockets.h"
 
 
-//int id_global; //Seria algo global?
-//char sep[2] = {' '};
+
 
 int socket_cliente = 0;
 
 
-//NO le di uso al ID. Deberia usarlo dentro del paquete para que MUSE detecte quien es?
-//Me parece que al crear la conexion correctamente se le deberia enviar los datos para identificar al proceso
+
+
 int muse_init(int id, char* ip, int puerto){
 printf("Conectando a Muse... \nIP: %s \nPUERTO: %i", ip, puerto);
     socket_cliente = crear_conexion_con_servidor(ip, puerto);
+//NO le di uso al ID. Deberia usarlo dentro del paquete para que MUSE detecte quien es?
+//Me parece que al crear la conexion correctamente se le deberia enviar los datos para identificar al proceso
     if(socket_cliente == 0){
         return -1;
     }
@@ -20,12 +21,14 @@ printf("Conectando a Muse... \nIP: %s \nPUERTO: %i", ip, puerto);
         return 0;
     }
 
-// * @return Si pasa un error, retorna -1. Si se inicializó correctamente, retorna 0.
 }
 
 
 void muse_close(){
+printf("Desconectandose de Muse...");
+//ENVIAR NUEVO CODIGO DE OPERACION A MUSE MOSTRANDO EL MUSE_CLOSE
     close(socket_cliente);
+printf("Desconectado");
 }
 
 

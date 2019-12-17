@@ -54,28 +54,53 @@ void init_server(){
 t_list* lista;
 while(1)
 {
+t_list *parametros = list_create();
 int cod_op = recibir_operacion(cliente_s);
+uint32_t tam; //int?
+uint32_t dir; //int?
+uint32_t src; //PODRIAN SER EL MISMO, NO?
+size_t n;
+void* dst;
+
+//charX = (char*)list_get(parametros, x);
+
 switch (cod_op) {
 	case MUSE_ALLOC:
-	recibir_mensaje(cliente_s);
+		parametros = recibir_paquete(server_socket);
+		tam = atoi(list_get(parametros, 0));
+		//ejecutar proceso e enviar respuesta
 		break;
+
 	case MUSE_FREE:
-	recibir_mensaje(cliente_s);
+		parametros = recibir_paquete(server_socket);
+		dir = atoi(list_get(parametros, 0));
+		//ejecutar proceso e enviar respuesta
 		break;
-	//TODAS LAS PROXIMAS RECIBEN PAQUETES Y NO MENSAJES
+
 	case MUSE_GET:
+		parametros = recibir_paquete(server_socket);
+		dst = //COMO HAGO ACA? (char*)list_get(parametros, 0);
+		src = atoi(list_get(parametros, 1));
+		n = atoi(list_get(parametros, 2));
+		//ejecutar proceso e enviar respuesta
 		break;
+
 	case MUSE_CPY:
 		break;
+
 	case MUSE_MAP:
 		break;
+
 	case MUSE_SYNC:
 		break;
+
 	case MUSE_UNMAP:
 		break;   
+
 	case -1:
 		log_error(logger, "el cliente se desconecto. Terminando servidor");
 		return EXIT_FAILURE;
+		
 	default:
 		log_warning(logger, "Operacion desconocida. No quieras meter la pata");
 		break;

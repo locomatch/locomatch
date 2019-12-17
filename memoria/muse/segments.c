@@ -117,7 +117,7 @@ int find_free_page(segment_t* segment){
 	}
 
 void page_is_free(page_info_t* page){
-	bool rta = page->isFree
+	bool rta = page->isFree; ///MMM 
 	return rta;
 }
 

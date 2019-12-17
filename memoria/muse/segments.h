@@ -7,31 +7,72 @@
 #include <string.h>
 #include <commons/config.h>
 #include <unistd.h>
+#include <stdint.h>
+#include <stddef.h>
 
 typedef struct{
-  char* value; //MMMM mepa cualqueira esto
+  char* value;
+  bool bitPresencia; //Agregado recien, antes estaba en page_info_t.
+  int nFrame;
 }page_t;
+
+typedef struct page_info{
+  page_t* page_ptr; //page pointer
+  struct page_info* next;
+  struct page_info* prev;
+}page_info_t;
+
+typedef struct{
+  heapMetadata* seg_heap;
+  page_info_t* pages;
+  struct segment_t* next;
+  struct segment_t* prev;
+}segment_t;
 
 typedef struct heapMetadata{
   u_int32_t size;
   bool isFree;
 }heapMetadata;
 
-typedef struct page_info{
-  int num_pag;
-  page_t* page_ptr;
-  bool isFree; //Es mejor usar 0/1?
-  struct page_info* next;
-  struct page_info* prev;
-}page_info_t;
 
-typedef struct segment{
-  int seg_num;
-  page_info_t* pages;
-  heapMetadata* seg_heap;
-  struct segment* next;
-  struct segment* prev;
-}segment_t;
+//----------- PHARSER STRUCTS -------------
+/*
+MUSE_ALLOC (X)
+MUSE_FREE (X)
+MUSE_UNMAP (X)
+*/
+typedef struct{
+  uint32_t X;
+}package_int;
+
+//MUSE GET (void* dst, uint32_t src, size_t n)
+typedef struct{
+  void* dst;
+  uint32_t src;
+  size_t n;
+}package_get;
+
+//MUSE CPY (uint32_t dst, void* src, int n)
+typedef struct{
+  uint32_t dst;
+  void* src;
+  int n;
+}package_cpy;
+
+//MUSE MAP (char *path, size_t length, int flags)
+typedef struct{
+  char *path;
+  size_t length;
+  int flags;
+}package_map;
+
+//MUSE SYNC (uint32_t addr, size_t len)
+typedef struct{
+  uint32_t addr;
+  size_t len;
+}package_sync;
+
+
 
 // ---- GLOBAL VARIABLES ----
 
