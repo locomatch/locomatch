@@ -58,7 +58,7 @@ typedef struct {
 typedef struct {
     char* instruction;
     char* path;
-    char* mode;
+    //char* mode;
 } package_readdir;
 
 #include "sac_servidor.h"

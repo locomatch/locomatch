@@ -503,8 +503,51 @@ static int sac_opendir(const char *path, struct fuse_file_info *fi) {
 }
 
 /* sac_readdir abre un directorio */
-int sac_readdir(char* msg) {
+static int sac_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) {
     log_info(logger,"Se recibio una instruccion readdir");
+
+    //para que es el offset?
+    
+    char* msg = malloc(strlen("readdir ")+strlen(path)+2);
+    msg[0] = '\0';
+    strcat(msg ,"readdir ");
+    strcat(msg ,path);
+
+    log_info(logger, "El mensaje a enviar es: %s", msg);
+
     sac_send(msg, serverSocket);
+
+    free(msg);
+
+    //obtener el responce para cargar la estructura que tiene que devolver esta garompa
+    char* response_buff = malloc(100);
+    response_buff[0] = '\0';
+    read(serverSocket, response_buff, 100);
+
+    if(strcmp(response_buff,"") == 0) {
+        //solo cargar . y ..
+        filler(buf, ".", NULL, 0);
+		filler(buf, "..", NULL, 0);
+    } else if (strcmp(response_buff,"EBADF") == 0) {
+        log_error(logger, "el directorio que intenta leer es un archivo regular o fue borrado");
+        errno = EBADF;
+        return -1;
+    } else {
+        //cargar el array con todos los nombres de las carpetas y directorios
+
+        //primero cargo . y ..
+        filler(buf, ".", NULL, 0);
+		filler(buf, "..", NULL, 0);
+
+        //despues cargo el resto
+        char** content_array = string_split(response_buff, "/");
+        
+        int i = 0;
+        while(content_array[i] != NULL) {
+            filler(buf, content_array[i], NULL, 0);
+            i++;
+        }
+    }
+
     return 0;
 }

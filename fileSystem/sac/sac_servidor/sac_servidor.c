@@ -821,7 +821,32 @@ char* action_opendir(package_opendir* package) {
 /* action_readdir abre un directorio */
 char* action_readdir(package_readdir* package) {
     log_info(logger,"Se recibio una accion readdir");
-    return "jo";
+    
+    //Tengo que devolver un string con los nombres de los archivos y directorios que tengan a este como padre
+
+    //compruebo que existe y esta abierto etc...
+    int dir_node_number;
+
+    //buscar el archivo
+    dir_node_number = search_for_file(package->path);
+    if(dir_node_number == 0) { //en este caso si es 0 es porque no existe
+        char* response = "EBADF";
+        return response;
+    }
+
+    //existe
+    //chequear que sea un archivo
+    int dir_state = check_node_state(dir_node_number);
+
+    if(dir_state == 0 || dir_state == 1) {
+        //el archivo fue borrado p es un archivo o es un archivo regular
+        char* response = "EBADF";
+        return response;
+    }
+
+    char* response = search_for_dir_childs(dir_node_number);
+    
+    return response;
 }
 
 int search_for_file(char* path){
@@ -1450,4 +1475,35 @@ void write_block( block_number, offset, string){
     fclose(disco);
 
     return;
+}
+
+char* search_for_dir_childs(int dir_node_number) {
+
+    //recorro toda la tabla de nodos buscando nodos que tengan de padre a dir_node_number los voy agregando a un array
+    FILE* disco = fopen("disco.bin", "r+");
+
+    int offset = 2 * BLOCK_SIZE;
+    fseek(disco, offset, SEEK_SET); //hacer que arranque en el ppio del bloque 2 
+    //la tabla de nodos arranca en el bloque 2 de disco.bin y tiene 1024 bloques (va del 2 al 1025)
+    //abro el disco y leo desde el primer nodo de la tabla de nodos hasta el último de la tabla de nodos
+
+    struct sac_file_t current_node;
+
+    char *dir_content = string_new();
+	//string_append(&dir_content, "/ /");
+	//string_append(&unaPalabra, "PEPE");
+
+    for(int i=0; i<=1023; i++) {
+        fread(&current_node, BLOCK_SIZE, 1, disco);
+
+        //comparo el ultimo string de path_array con el nombre del archivo
+        if(current_node.parent_block == dir_node_number) {
+            string_append(&dir_content, current_node.fname);
+            string_append(&dir_content, "/");
+        }
+    }
+
+    fclose(disco);
+
+    return dir_content;
 }

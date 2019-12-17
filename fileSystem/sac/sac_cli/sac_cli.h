@@ -36,7 +36,7 @@ static int sac_mknod(char* path, mode_t mode, dev_t rdev);
 static int sac_mkdir(char* path, mode_t mode);
 static int sac_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi);
 static int sac_opendir(const char *path, struct fuse_file_info *fi);
-int sac_readdir(char* msg);
+static int sac_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi);
 
 void sac_send(char* msg,int serverSocket);
 
