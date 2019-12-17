@@ -37,39 +37,58 @@ typedef struct heapMetadata{
 
 //----------- PHARSER STRUCTS -------------
 /*
-MUSE_ALLOC (X)
-MUSE_FREE (X)
-MUSE_UNMAP (X)
+UNMAP (X)
+CHAR  (X)
+VOID  (X)
 */
+
+//MUSE ALLOC (uint32_t tam);
 typedef struct{
-  uint32_t X;
-}package_int;
+  uint32_t tam_id;
+  char* id;
+  uint32_t tam;
+}package_alloc;
+
+//MUSE FREE (uint32_t dir);
+typedef struct{
+  uint32_t tam_id;
+  char* id;
+  uint32_t dir;
+}package_free;
 
 //MUSE GET (void* dst, uint32_t src, size_t n)
 typedef struct{
-  void* dst;
-  uint32_t src;
-  size_t n;
+  uint32_t tam_id;
+  char* id;
+  uint32_t dir;
+  uint32_t tam;
 }package_get;
 
 //MUSE CPY (uint32_t dst, void* src, int n)
 typedef struct{
-  uint32_t dst;
-  void* src;
-  int n;
+  uint32_t tam_id;
+  char* id;
+  uint32_t dir;
+  uint32_t tam_paq;
+  void* paq;
 }package_cpy;
 
 //MUSE MAP (char *path, size_t length, int flags)
 typedef struct{
-  char *path;
-  size_t length;
-  int flags;
+  uint32_t tam_id;
+  char* id;
+  uint32_t tam_path;
+  char* path;
+  uint32_t tam;
+  uint32_t flags;
 }package_map;
 
 //MUSE SYNC (uint32_t addr, size_t len)
 typedef struct{
-  uint32_t addr;
-  size_t len;
+  uint32_t tam_id;
+  char* id;
+  uint32_t dir;
+  size_t tam;
 }package_sync;
 
 
