@@ -14,11 +14,13 @@
 #include <signal.h>
 
 
-int main(void) {
+int main(char const *argv[]) { //Tomado de otra repo, sirve para inicializar diferentes configs
+
+	init_config();
 
 	init_logger();
 
-	log_info(logger, "[MUSE] Iniciando..");
+	log_info(logger, "[MUSE] Iniciando.. \n");
 
 	init_server();
 	
@@ -27,10 +29,20 @@ int main(void) {
 	exit(EXIT_SUCCESS);
 }
 
+void init_config(){
+	config_data = malloc(sizeof(mi_config));
+	char* config_name = malloc(10);
+	strcpy(config_name, "config");
+	strcat(config_name, argv[1]); //xq me tira error? Tengo entendido que como argumento pongo que config quiero inicializar
+
+	generate_config(config_data, config_name);
+	printf("Config Inicializado. \n");
+}
+
 void init_logger(){
 
-	logger = log_create("Muse.log", "muse", 1, LOG_LEVEL_DEBUG);
-	log_info(logger, "Logger inicializado");
+	logger = log_create(LOGPATH, "Muse", 1, LOG_LEVEL_INFO); //Que tipo de level le pongo?
+	log_info(logger, "Logger inicializado \n");
 }
 void init_memoria(){
 //INICIALIZO MEMORIA PRINCIPAL Y RELLENO CON 0
@@ -110,6 +122,24 @@ return EXIT_SUCCESS;
 
 }
 
+void generate_config(mi_config* config_d, char* config_n){
+	t_config* config = config_create(config_n);
+	
+	char* LOGPATH = config_get_string_value(config, "LOG_PATH");
+
+	config_d->ip = malloc(strlen(config_get_string_value(config, "IP")) + 1);
+	strcpy(config_d->ip, config_get_string_value(config, "IP"));
+
+	config_d->puerto = config_get_int_value(config, "LISTEN_PORT");
+	config_d->tamanio_mem = config_get_int_value(config,"MEMORY_SIZE");
+	config_d->tamanio_pagina = config_get_int_value(config, "PAGE_SIZE");
+	config_d->tamanio_swap = config_get_int_value(config, "SWAP_SIZE");
+
+	config_destroy(config);
+}
+/*
+Lo habia hecho el chico que se fue.
+
 void cargar_datos_muse(){
 	muse_ini = config_create("muse.ini");
 	muse_config.puerto_escucha = config_get_string_value(muse_ini,"LISTEN_PORT");
@@ -118,3 +148,4 @@ void cargar_datos_muse(){
 	muse_config.tamanio_pagina = config_get_int_value(muse_ini,"PAGE_SIZE");
 	muse_config.tamanio_swap = config_get_int_value(muse_ini,"SWAP_SIZE");
 }
+*/
