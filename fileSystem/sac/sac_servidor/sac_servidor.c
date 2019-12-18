@@ -4,6 +4,9 @@ t_log* logger;
 
 struct sac_opened_file* opened_files_table_p = NULL;
 
+int node_table_start, node_table_end, bitmap_start, bitmap_end, data_blocks_start, data_blocks_end;
+int bitmap_size_bytes;
+
 int main(void) {
     printf("Corriendo el servidor\n");
 
@@ -22,6 +25,9 @@ int main(void) {
     /*LOG*/
     char* LOGPATH = strdup(config_get_string_value(config, "LOG_PATH"));
     logger = log_create(LOGPATH, "Sac_servidor", 1, LOG_LEVEL_INFO);
+
+    /*FORMAT DISK*/
+    format_disk();
 
     /*SERVER*/
     log_info(logger, "iniciando thread server");
@@ -953,7 +959,7 @@ int find_node(char** path_array) {
 
     FILE* disco = fopen("disco.bin", "r+");
 
-    int offset = 2 * BLOCK_SIZE;
+    int offset = node_table_start * BLOCK_SIZE;
     fseek(disco, offset, SEEK_SET); //hacer que arranque en el ppio del bloque 2 
     //la tabla de nodos arranca en el bloque 2 de disco.bin y tiene 1024 bloques (va del 2 al 1025)
     //abro el disco y leo desde el primer nodo de la tabla de nodos hasta el último de la tabla de nodos
@@ -1077,15 +1083,15 @@ int find_free_block(int area) {
     printf("checkpoint 11 a\n");
 
     //defino donde esta el bitmap (es el segundo bloque)
-    int bitmap_offset = BLOCK_SIZE;
+    int bitmap_offset = bitmap_start * BLOCK_SIZE;
     //TODO ver que el bitmap esta definido en el header del fs -> tendria que leerlo de ahi calcular donde esta y seguir
 
     FILE* disco = fopen("disco.bin", "r+"); //TODO ver con que permisos lo tengo que abrir
     //leer el bitmap
     fseek(disco, bitmap_offset, SEEK_SET);
 
-    char* bitmap = malloc(BLOCK_SIZE + 1);
-    fread(bitmap ,sizeof(char) ,BLOCK_SIZE ,disco); //TODO si cambia el tamaño del bitmap tengo que reemplazar BLOCK_SIZE por el tamaño del bitmap
+    char* bitmap = malloc(bitmap_size_bytes + 1);
+    fread(bitmap ,sizeof(char) ,bitmap_size_bytes ,disco); //TODO si cambia el tamaño del bitmap tengo que reemplazar BLOCK_SIZE por el tamaño del bitmap
     fclose(disco);
 
     printf("checkpoint 11 b\n");
@@ -1100,17 +1106,17 @@ int find_free_block(int area) {
 
     if(area == 0) {
         //busco en la tabla de nodos
-        area_start = 2;
-        area_end = 1025;
+        area_start = node_table_start;
+        area_end = node_table_end;
     } else if (area == 1) {
         //busco en los bloques de datos
-        area_start = 1026;
-        area_end = 32767;
+        area_start = data_blocks_start;
+        area_end = data_blocks_end;
     }
 
     printf("checkpoint 11 c\n");
 
-    t_bitarray* bitarray = bitarray_create_with_mode(bitmap, 4096, LSB_FIRST);
+    t_bitarray* bitarray = bitarray_create_with_mode(bitmap, bitmap_size_bytes, LSB_FIRST);
     
     //recorro el bitmap en esa seccion buscando un 0, si lo encuentro devuelvo su posición, sino devuelvo 0
     for(int i = area_start; i<=area_end ;i++) {
@@ -1136,15 +1142,15 @@ int find_free_block(int area) {
 void set_block_as_occupied(int block_number) {
     
     //defino donde esta el bitmap (es el segundo bloque)
-    int bitmap_offset = BLOCK_SIZE;
+    int bitmap_offset = bitmap_start * BLOCK_SIZE;
     //TODO ver que el bitmap esta definido en el header del fs -> tendria que leerlo de ahi calcular donde esta y seguir
 
     FILE* disco = fopen("disco.bin", "r+"); //TODO ver con que permisos lo tengo que abrir
     //leer el bitmap
     fseek(disco, bitmap_offset, SEEK_SET);
 
-    char* bitmap = malloc(BLOCK_SIZE + 1);
-    fread(bitmap, BLOCK_SIZE, 1, disco); //TODO si cambia el tamaño del bitmap tengo que reemplazar BLOCK_SIZE por el tamaño del bitmap
+    char* bitmap = malloc(bitmap_size_bytes + 1);
+    fread(bitmap, bitmap_size_bytes, 1, disco); //TODO si cambia el tamaño del bitmap tengo que reemplazar BLOCK_SIZE por el tamaño del bitmap
 
 
     printf("EL BITMAP ES :\n");
@@ -1171,7 +1177,7 @@ void set_block_as_occupied(int block_number) {
 
     }
 
-    t_bitarray* bitarray = bitarray_create_with_mode(bitmap, 4096, LSB_FIRST);
+    t_bitarray* bitarray = bitarray_create_with_mode(bitmap, bitmap_size_bytes, LSB_FIRST);
 
     //bitmap[block_number] = '1';
 
@@ -1205,7 +1211,7 @@ void set_block_as_occupied(int block_number) {
 
     fseek(disco, bitmap_offset, SEEK_SET);
 
-    fwrite(bitarray->bitarray, BLOCK_SIZE, 1, disco); //TODO ver de estar haciendo bien el read write
+    fwrite(bitarray->bitarray, bitmap_size_bytes, 1, disco); //TODO ver de estar haciendo bien el read write
     fclose(disco);
     free(bitmap);
     return;
@@ -1360,18 +1366,19 @@ void format_bitmap_nodetable() {
     
     FILE* disco = fopen("disco.bin", "r+"); //TODO ver con que permisos lo tengo que abrir
 
-    int offset = 1 * BLOCK_SIZE;
+    int offset = bitmap_start * BLOCK_SIZE;
 
     fseek(disco, offset, SEEK_SET);
 
-    struct sac_block_t bitmap_block;
+    //struct sac_block_t bitmap_block; //TODO ver que esta estructura me sirva para los distintos bitmaps
+    char* bitmap_blocks = malloc(bitmap_size_bytes);
 
-    fread(&bitmap_block, BLOCK_SIZE, 1, disco);
+    fread(bitmap_blocks, BLOCK_SIZE, 1, disco);
 
-    t_bitarray* bitarray = bitarray_create_with_mode(bitmap_block.bytes, 4096, LSB_FIRST);
+    t_bitarray* bitarray = bitarray_create_with_mode(bitmap_blocks, bitmap_size_bytes, LSB_FIRST);
 
     int area_start = 2;
-    int area_end = 4096;
+    int area_end = bitmap_size_bytes * 8 - 1; //TODO ver que esto este bien
 
     for(int i = area_start; i<=area_end ;i++) { 
         if(bitarray_test_bit(bitarray, i) == 1){ 
@@ -1382,10 +1389,10 @@ void format_bitmap_nodetable() {
     //escribo
     fseek(disco, offset, SEEK_SET);
     
-    fwrite(bitarray->bitarray, BLOCK_SIZE, 1, disco); //TODO ver de estar haciendo bien el read write
+    fwrite(bitarray->bitarray, bitmap_size_bytes, 1, disco); //TODO ver de estar haciendo bien el read write
     fclose(disco);
 
-    dump_block(1);
+    //dump_block(1);
     
     return;
 }
@@ -1482,7 +1489,7 @@ char* search_for_dir_childs(int dir_node_number) {
     //recorro toda la tabla de nodos buscando nodos que tengan de padre a dir_node_number los voy agregando a un array
     FILE* disco = fopen("disco.bin", "r+");
 
-    int offset = 2 * BLOCK_SIZE;
+    int offset = node_table_start * BLOCK_SIZE;
     fseek(disco, offset, SEEK_SET); //hacer que arranque en el ppio del bloque 2 
     //la tabla de nodos arranca en el bloque 2 de disco.bin y tiene 1024 bloques (va del 2 al 1025)
     //abro el disco y leo desde el primer nodo de la tabla de nodos hasta el último de la tabla de nodos
@@ -1493,7 +1500,7 @@ char* search_for_dir_childs(int dir_node_number) {
 	//string_append(&dir_content, "/ /");
 	//string_append(&unaPalabra, "PEPE");
 
-    for(int i=0; i<=1023; i++) {
+    for(int i=node_table_start; i<=node_table_end; i++) {
         fread(&current_node, BLOCK_SIZE, 1, disco);
 
         //comparo el ultimo string de path_array con el nombre del archivo
@@ -1506,4 +1513,94 @@ char* search_for_dir_childs(int dir_node_number) {
     fclose(disco);
 
     return dir_content;
+}
+
+void format_disk() {
+    //leer el disco y calcular donde esta cada estructura, el tamaño del bitmap, etc...
+    //el tamaño del bitmap se obtiene del header
+    struct stat st;
+    stat("disco.bin", &st);
+    int disk_size_bytes = st.st_size;
+
+    int header_size_blocks = 1; //tamaño del header en bloques
+    int header_size_bytes = header_size_blocks * BLOCK_SIZE; //tamaño del header en bytes
+
+    int bitmap_size_blocks = ((disk_size_bytes / BLOCK_SIZE) / 8) / BLOCK_SIZE;
+    int bitmap_size_blocks_round = round(bitmap_size_blocks);
+
+    if(bitmap_size_blocks != bitmap_size_blocks_round) {
+        if(bitmap_size_blocks > bitmap_size_blocks_round) {
+            bitmap_size_blocks = bitmap_size_blocks_round + 1;
+        } else {
+            bitmap_size_blocks = bitmap_size_blocks_round;
+        }
+    }
+
+    bitmap_size_bytes = (disk_size_bytes / BLOCK_SIZE) / 8;
+    bitmap_start = 1;
+    bitmap_end = bitmap_start + bitmap_size_blocks - 1;
+
+    log_info(logger, "El tamaño del disco en bytes es de: %d", disk_size_bytes);
+    log_info(logger, "El tamaño del bitmap en bytes es de: %d", bitmap_size_bytes);
+
+    int node_table_size_blocks = 1024;
+    int node_table_size_bytes = node_table_size_blocks * BLOCK_SIZE;
+    node_table_start = bitmap_end + 1;
+    node_table_end = node_table_start + node_table_size_blocks - 1;
+
+    int data_blocks_size_blocks = (disk_size_bytes / BLOCK_SIZE) - header_size_blocks - bitmap_size_blocks - node_table_size_blocks;
+    int data_blocks_size_bytes = data_blocks_size_blocks * BLOCK_SIZE;
+    data_blocks_start = node_table_end + 1;
+    data_blocks_end = data_blocks_start + data_blocks_size_blocks - 1;
+
+    //chequear si el primer bloque de la tabla de nodos es el directorio raiz
+    //si es retorno sin hacer nada
+    FILE* disco = fopen("disco.bin", "r+");
+
+    fseek(disco, node_table_start * BLOCK_SIZE, SEEK_SET);
+
+    struct sac_file_t first_node;
+    fread(&first_node, BLOCK_SIZE, 1, disco);
+
+    fclose(disco);
+
+    if(strcmp(first_node.fname, "root") == 0) { //TODO ver cual es el nombre del directorio raiz
+        log_info(logger, "No hace falta formatear el disco");
+        return;
+    } else {
+
+        log_info(logger, "Se va a formatear el disco");
+
+        format_bitmap_nodetable();
+
+        //creo el nodo del directorio raiz;
+        //cambio el bitmap para que lo muestre como ocupado
+        set_block_as_occupied(0);
+        set_block_as_occupied(1);
+        set_block_as_occupied(2);        
+
+        //cargar un nodo con los datos del nuevo archivo y escribirlo en la tabla de nodos
+        struct sac_file_t file_node;
+        file_node.state = 2; //directorio
+        memcpy(file_node.fname, "root", strlen("root"));//TODO ver el nombre del directorio raiz
+        //file_node.fname = "";
+        file_node.parent_block = 0;//TODO ver el numero de parent_block
+        file_node.filesize = 0;
+        file_node.created = time(NULL);
+        file_node.modified = time(NULL);
+        file_node.blocks[0] = '\0';
+
+        //hacer fopen fwrite y fclose del disco
+        FILE* disco = fopen("disco.bin", "r+");
+
+        fseek(disco, node_table_start * BLOCK_SIZE, SEEK_SET); //en la posicion del bloque libre
+
+        fwrite(&file_node, BLOCK_SIZE, 1, disco);
+
+        fclose(disco);
+
+        dump_file_node(2);
+
+        return;
+    }
 }
