@@ -7,14 +7,15 @@
 #include <commons/config.h>
 #include <unistd.h>
 
-void crearTablaSegmentosProceso(int idCli) {
+
+//Utilizado en MUSE_INIT para inicializar la tabla de segmentos VACIA de nuestro nuevo programa com ID Cliente
+void createTableSegment(int idCli) {
 
 	char *strIdCli = string_itoa(idCli);
 
 	if (!dictionary_has_key(SEGMENT_TABLE, strIdCli)) {
 		t_list *listaDeSegmentos = list_create();
 
-		//Creo la estructura, pero no tiene segmentos aun
 		dictionary_put(SEGMENT_TABLE, strIdCli,
 				listaDeSegmentos);
 	}
@@ -23,6 +24,105 @@ void crearTablaSegmentosProceso(int idCli) {
 
 }
 
+//Funcion encargada de crear un nuevo segmento
+struct segment_t* createSegment(uint32_t tamanio, int idCli) {
+
+	char* strIdCli = string_itoa(idCli);
+
+//Inicializo nuevo segmento en la tabla del IDCli, sin contenito
+	t_list* PSegmentList = dictionary_get(SEGMENT_TABLE,
+			idCli);
+	segment_t* newSegment = malloc(sizeof(segment_t));
+	newSegment->pagsLib = 0;
+	newSegment->metadatas = list_create();
+//Lo relleno con respectivo numero de segmento
+	if (list_is_empty(PSegmentList)) {
+		newSegment->nSegment = 0;
+	} 
+	else {
+		newSegment->nSegment = list_size(PSegmentList);
+	}
+//Lo relleno con respectiva base logica.
+//0 si es el primero  Y  (base logica del lastSegment + 1) si no es el primero
+
+	if (list_is_empty(PSegmentList)) {
+		newSegment->bLogica = 0 + MAIN_MEMORY;
+	} 
+	else {
+		int nLastSegment = list_size(PSegmentList) - 1;
+		newSegment->bLogica = segmentSize(nLastSegment, idCli) + 1 + MAIN_MEMORY;
+	}
+//Lo relleno con respectivas paginas/frames. Tengo que analizar segun el TAMANIO ALOCADO cuantas paginas necesita.
+//"Incluye requerir el espacio solicitado mas el tamanio de 2 metadatas".
+//Una para indicar X bytes en uso y otra para indicar Y bytes posteriores libres.
+int pagesNeeded, allocatedSize;
+allocatedSize = (tamanio + 2 * sizeof(heapMetadata));
+pagesNeeded = ceil(allocatedSize / tamanio_pagina) //Necesito redondear siempre para arriba, por eso uso la lib math.h y ceil
+//Lo relleno con Tabla de Paginas, VACIA hasta el momento
+//TODO LIST: Tengo que mostrar de alguna manera que hay un heap dividido. Algo en la estructura de mi segment?
+//Lo dejo aca hasta pensar como sigue esto.
+
+
+
+
+
+}
+
+
+
+
+uint32_t segmentSize(int nSegment, int idCli) {
+	char* strIdCli = string_itoa(idCli);
+	t_list* PSegmentList = dictionary_get(SEGMENT_TABLE,
+			idCli);
+	segment_t* provSegment = malloc(sizeof(segment_t)); //Me suena raro  (struct HeapMetadata)
+
+	provSegment = list_get(PSegmentList, nSegment);
+
+//	free(stringIdSocketCliente);
+	return provSegment->tam;
+}
+
+
+// Me falta onsiderar si se partio la metadata. Por ahi algo asi? -> bool *metadataSplited)
+struct segment_t* setFirstSegmentPage(segment_t* segment, int metadataSize) { 
+
+	page_t* firstPage = malloc(sizeof(page_t));
+	firstPage->nFrame = asignarUnFrame();
+	firstPage->bitPresencia = 1;
+	firstPage->nSwap = -1;
+	frame_t* frame = malloc(sizeof(frame_t));
+//TODOLIST BITMAP DE LOS FRAMES.
+	frame = list_get(/*Bitmap de frames?*/, firstPage->nFrame);
+	frame->modif = 1;
+	frame->used = 1;
+	frame->isFree = false;
+	list_replace(/*Bitmap de frames?*/, firstPage->nFrame, frame);
+
+	list_add(segment->tablaPaginas, firstPage);
+
+		int pos = getPageIndex(segment->tablaPaginas, firstPage)* tamanio_pagina;
+
+	heapMetadata* metadata = malloc(sizeof(heapMetadata));
+	metadata->isFree = false;
+	metadata->size = metadataSize;
+
+
+int getPageIndex(t_list* pagesList, page_t* page) {
+
+	page_t* provPage;
+
+	for (int i = 0; i < list_size(pagesList); i++) {
+		provPage = list_get(pagesList, i);
+
+		if (!memcmp(page, pagesList, sizeof(page_t))) {
+			return i;
+		}
+
+	}
+
+	return -1;
+}
 
 
 

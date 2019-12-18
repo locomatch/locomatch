@@ -24,7 +24,7 @@ typedef struct{
 typedef struct page_info{
   bool isFree;
   int modif;
-  int uso;
+  int used;
 }frame_t;
 
 typedef struct{
@@ -36,7 +36,7 @@ typedef struct{
   t_list* metadatas;
 }segment_t;
 
-typedef struct heapMetadata{
+typedef struct{
   u_int32_t size;
   bool isFree;
 }heapMetadata;
