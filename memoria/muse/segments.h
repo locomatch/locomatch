@@ -96,7 +96,6 @@ typedef struct{
 // ---- GLOBAL VARIABLES ----
 
 segment_t* SEGMENT_TABLE;
-page_t* MAIN_MEMORY; 
 int NUMBER_OF_PAGES;
 int PAGE_SIZE;
 t_log* logger;
@@ -105,8 +104,6 @@ t_config* config;
 
 int SEGMENT_NUM = 0;
 //COMUNICACION CON SOCKET? Muse?
-
-pthread_mutex_t main_memory_mutex;
 
 // --------------------------
 

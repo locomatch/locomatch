@@ -37,5 +37,12 @@ typedef struct{
 mi_config* config_data;
 char* LOGPATH;
 
+int tamanio_mem;
+int tamanio_pagina;
+int tamanio_swap;
+int cant_pags;
+
+void* MAIN_MEMORY;
+
 
 #endif /* MUSE_H_ */

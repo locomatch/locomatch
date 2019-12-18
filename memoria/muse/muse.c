@@ -46,13 +46,17 @@ void init_logger(){
 }
 void init_memoria(){
 //INICIALIZO MEMORIA PRINCIPAL Y RELLENO CON 0
-  int main_memory_size = muse_config.tamanio_mem;
-  MAIN_MEMORY = malloc(main_memory_size);
+  tamanio_mem = config_data -> tamanio_mem;
+  tamanio_pagina = config_data -> tamanio_pagina;
+  tamanio_swap = config_data -> tamanio_swap;
+  cant_pags = tamanio_mem/tamanio_pagina;
+
+  MAIN_MEMORY = malloc(tamanio_mem);
   if(MAIN_MEMORY == NULL) {
     log_error(logger, "No se pudo alocar espacio para la memoria principal.");
     return 0;
   }
-  memset(MAIN_MEMORY, 0, main_memory_size);
+  memset(MAIN_MEMORY, 0, tamanio_mem);
 }
 
 void init_server(){
