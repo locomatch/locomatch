@@ -43,6 +43,7 @@ int tamanio_swap;
 int cant_pags;
 
 void* MAIN_MEMORY;
+t_dictionary* tablasSegmentos;
 
 
 #endif /* MUSE_H_ */

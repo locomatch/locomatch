@@ -7,13 +7,51 @@
 #include <commons/config.h>
 #include <unistd.h>
 
-/*
-void muse_alloc(int tam){
-	segment_t* segment = create_segment;
+void crearTablaSegmentosProceso(int idCli) {
+
+	char *strIdCli = string_itoa(idCli);
+
+	if (!dictionary_has_key(SEGMENT_TABLE, strIdCli)) {
+		t_list *listaDeSegmentos = list_create();
+
+		//Creo la estructura, pero no tiene segmentos aun
+		dictionary_put(SEGMENT_TABLE, strIdCli,
+				listaDeSegmentos);
+	}
+
+//	free(strIdCli);
 
 }
-*/
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// APRENDI LIST Y DICTIONARY
+
+/*
 page_t* create_page(){
 	page_t* page = (page_t*)malloc(sizeof(page_t));
 	page->value = (char*)malloc(VALUE_SIZE); //VALUE SIZE SERIA EL TAMANIO DEL MALLOC?
@@ -132,3 +170,4 @@ segment_t* find_segment(int num){
 	}
 	return temp; //SI NO EXISTE SERA NULL
 }
+*/

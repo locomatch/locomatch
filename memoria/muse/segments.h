@@ -9,30 +9,39 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <commons/collections/dictionary.h>
+#include <commons/collections/list.h>
+
+//----------- MEMORY STRUCTS -------------
 
 typedef struct{
   char* value;
-  bool bitPresencia; //Agregado recien, antes estaba en page_info_t.
+  bool bitPresencia; //Podria ser un int?
   int nFrame;
+  int nSwap; //Falta para esto
 }page_t;
 
 typedef struct page_info{
-  page_t* page_ptr; //page pointer
-  struct page_info* next;
-  struct page_info* prev;
-}page_info_t;
+  bool isFree;
+  int modif;
+  int uso;
+}frame_t;
 
 typedef struct{
-  heapMetadata* seg_heap;
-  page_info_t* pages;
-  struct segment_t* next;
-  struct segment_t* prev;
+  int nSegment;
+  int pagsLib;
+  uint32_t bLogica;
+  uint32_t tam;
+  t_list* tablaPaginas;
+  t_list* metadatas;
 }segment_t;
 
 typedef struct heapMetadata{
   u_int32_t size;
   bool isFree;
 }heapMetadata;
+
+//Faltaria una lista de heaps?
 
 
 //----------- PHARSER STRUCTS -------------
@@ -94,15 +103,23 @@ typedef struct{
 
 
 // ---- GLOBAL VARIABLES ----
+int tamanio_mem;
+int tamanio_pagina;
+int tamanio_swap;
+int cant_pags;
 
-segment_t* SEGMENT_TABLE;
+void* MAIN_MEMORY;
+t_dictionary* SEGMENT_TABLE;
+
+// VIEJO
 int NUMBER_OF_PAGES;
 int PAGE_SIZE;
 t_log* logger;
 int VALUE_SIZE;
 t_config* config;
+//VIEJO
 
-int SEGMENT_NUM = 0;
+
 //COMUNICACION CON SOCKET? Muse?
 
 // --------------------------
