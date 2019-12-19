@@ -56,7 +56,7 @@ void init_memoria(){
     log_error(logger, "No se pudo alocar espacio para la memoria principal.");
     return 0;
   }
-  memset(MAIN_MEMORY, 0, tamanio_mem);
+  memset(MAIN_MEMORY, 0, tamanio_mem); 
 }
 
 void init_server(){
@@ -141,15 +141,3 @@ void generate_config(mi_config* config_d, char* config_n){
 
 	config_destroy(config);
 }
-/*
-Lo habia hecho el chico que se fue.
-
-void cargar_datos_muse(){
-	muse_ini = config_create("muse.ini");
-	muse_config.puerto_escucha = config_get_string_value(muse_ini,"LISTEN_PORT");
-	muse_config.ip_escucha = config_get_string_value(muse_ini,"LISTEN_IP");
-	muse_config.tamanio_mem = config_get_int_value(muse_ini,"MEMORY_SIZE");
-	muse_config.tamanio_pagina = config_get_int_value(muse_ini,"PAGE_SIZE");
-	muse_config.tamanio_swap = config_get_int_value(muse_ini,"SWAP_SIZE");
-}
-*/

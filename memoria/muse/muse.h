@@ -7,17 +7,9 @@
 #include <commons/config.h>
 #include <commons/log.h>
 #include <linuse/sockets/sockets.h>
-/*
-typedef struct{
-	char* puerto_escucha;
-	char* ip_escucha;
-	int tamanio_mem;
-	int tamanio_pagina;
-	int tamanio_swap;
-}_muse_ini;
-*/
 
-t_config* muse_ini;
+
+
 t_log* logger;
 int server_socket;
 
@@ -37,13 +29,6 @@ typedef struct{
 mi_config* config_data;
 char* LOGPATH;
 
-int tamanio_mem;
-int tamanio_pagina;
-int tamanio_swap;
-int cant_pags;
-
-void* MAIN_MEMORY;
-t_dictionary* tablasSegmentos;
 
 
 #endif /* MUSE_H_ */

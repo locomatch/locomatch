@@ -6,7 +6,7 @@
 #include <string.h>
 #include <commons/config.h>
 #include <unistd.h>
-
+#include <math.h>
 
 //Utilizado en MUSE_INIT para inicializar la tabla de segmentos VACIA de nuestro nuevo programa com ID Cliente
 void createTableSegment(int idCli) {
@@ -21,8 +21,80 @@ void createTableSegment(int idCli) {
 	}
 
 //	free(strIdCli);
-
 }
+
+void createBitmapFrames(){
+	bitmapFrames = list_create();
+	for (int i = 0; i < cant_frames; i++) {
+
+		frame_t* newFrame = malloc(sizeof(frame_t));
+
+		newFrame->modif = 0;
+		newFrame->used = 0;
+		newFrame->isFree = true;
+
+		list_add(bitmapFrames, newFrame);
+	}
+}
+
+bool isFrameFree(int nFrame){
+	frame_t* frame = list_get(bitmapFrames, nFrame);
+
+	if(frame->isFree==true){
+		return true;
+	}
+	else{
+		return false;
+	}
+//return frame->isFree; De una?
+}
+
+void fillFrame(int frame){
+	frame_t* provFrame = list_get(bitmapFrames, frame);
+
+	provFrame->used = 1;
+	provFrame->isFree = false;
+}
+
+void freeFrame(int frame){
+	frame_t* provFrame = list_get(bitmapFrames, frame);
+
+	provFrame->used = 0; //OK?
+	provFrame->isFree = true;
+}
+
+int searchFreeFrame(){
+	frame_t* frame;
+
+	for(int i=0; i < cant_frames; i++){
+		frame = list_get(bitmapFrames, i);
+
+		if(frame->isFree == true){ //al pedo la comparacion al true?
+			return i;
+		} 
+	}
+	return -1;
+}
+
+bool anyFreeFrame(){
+	int freeFrame = searchFreeFrame();
+
+	if(freeFrame == -1){
+		return false;
+	}
+	else{
+		return true;
+	}
+}
+
+void* framePos(int frame){
+	int offset = tamanio_pagina * frame;
+
+	void* pos = (MAIN_MEMORY + offset);
+
+	return pos;
+}
+
 
 //Funcion encargada de crear un nuevo segmento
 struct segment_t* createSegment(uint32_t tamanio, int idCli) {
@@ -30,8 +102,7 @@ struct segment_t* createSegment(uint32_t tamanio, int idCli) {
 	char* strIdCli = string_itoa(idCli);
 
 //Inicializo nuevo segmento en la tabla del IDCli, sin contenito
-	t_list* PSegmentList = dictionary_get(SEGMENT_TABLE,
-			idCli);
+	t_list* pSegmentList = dictionary_get(SEGMENT_TABLE, idCli);
 	segment_t* newSegment = malloc(sizeof(segment_t));
 	newSegment->pagsLib = 0;
 	newSegment->metadatas = list_create();
@@ -45,11 +116,11 @@ struct segment_t* createSegment(uint32_t tamanio, int idCli) {
 //Lo relleno con respectiva base logica.
 //0 si es el primero  Y  (base logica del lastSegment + 1) si no es el primero
 
-	if (list_is_empty(PSegmentList)) {
+	if (list_is_empty(pSegmentList)) {
 		newSegment->bLogica = 0 + MAIN_MEMORY;
 	} 
 	else {
-		int nLastSegment = list_size(PSegmentList) - 1;
+		int nLastSegment = list_size(pSegmentList) - 1;
 		newSegment->bLogica = segmentSize(nLastSegment, idCli) + 1 + MAIN_MEMORY;
 	}
 //Lo relleno con respectivas paginas/frames. Tengo que analizar segun el TAMANIO ALOCADO cuantas paginas necesita.
@@ -57,19 +128,140 @@ struct segment_t* createSegment(uint32_t tamanio, int idCli) {
 //Una para indicar X bytes en uso y otra para indicar Y bytes posteriores libres.
 int pagesNeeded, allocatedSize;
 allocatedSize = (tamanio + 2 * sizeof(heapMetadata));
-pagesNeeded = ceil(allocatedSize / tamanio_pagina) //Necesito redondear siempre para arriba, por eso uso la lib math.h y ceil
+pagesNeeded = ceil(allocatedSize / tamanio_pagina); //Necesito redondear siempre para arriba, por eso uso la lib math.h y ceil
 //Lo relleno con Tabla de Paginas, VACIA hasta el momento
 //TODO LIST: Tengo que mostrar de alguna manera que hay un heap dividido. Algo en la estructura de mi segment?
 //Lo dejo aca hasta pensar como sigue esto.
+newSegment->tablaPaginas = list_create();
+bool* metadataSplitted = malloc(sizeof(bool));
+metadataSplitted = false; //falta un (*) ?
+//Relleno Tabla de Paginas con Primera Pagina
+newSegment = setFirstSegmentPage(newSegment, tamanio, metadataSplitted); //metadataSplitted puede ser directamente false?
 
+//ALGO RARO HAY ACA///////////////////////////////////////////////////////////////////////////////////
 
+heapList* lastHeap = list_get(newSegment->metadatas, list_size(newSegment->metadatas) -1 );
 
+if(lastHeap->isFree == true){ //al pedo la comparativa contra el true?
+	allocatedSize -= lastHeap->size;
+}
 
+lastHeap->size = tamanio;
+lastHeap->isFree = false;
 
+while(pagesNeeded > 0){
+
+	if(allocatedSize > tamanio_pagina){
+		newSegment = setNewPage(newSegment);
+		allocatedSize -= tamanio_pagina;
+	}
+	else{
+		newSegment = setLastSegmentPage(newSegment, allocatedSize);
+		allocatedSize = 0;
+	}
+
+	pagesNeeded --;
+}
+
+list_add(pSegmentList, newSegment);
+
+//free(strIdCli);
+
+return newSegment;
 }
 
 
+segment_t* setNewPage(segment_t* segment){
+	page_t* page = malloc(sizeof(page_t));
+	page->nFrame = setAFrame();
+	page->bitPresencia = 1;
+	page->nSwap = -1;
 
+	frame_t* frame = malloc(sizeof(frame_t));
+	frame = list_get(bitmapFrames, page->nFrame);
+	frame->modif = 1;
+	frame->used = 1;
+	frame->isFree = false;
+
+	list_replace(bitmapFrames, page->nFrame, frame);//list_replace o replaceAndDestroy?
+
+	list_add(segment->tablaPaginas, page);
+
+	segment->tam += tamanio_pagina;
+
+	return segment;
+}
+
+int setAFrame(){
+	int frame;
+	bool swapNeeded;
+
+	if(anyFreeFrame()){
+		frame = searchFreeFrame();
+		swapNeeded = false;
+	}
+	else{
+		frame = modifiedClock(); //FALTA HACER
+		swapNeeded = true;
+	}
+
+	frame_t* frameR = malloc(sizeof(frame_t));
+	frameR = list_get(bitmapFrames, frame);
+	frameR->modif = 1;
+	frameR->used = 1;
+	frameR->isFree = false;
+
+	if(swapNeeded){//esta bien comprarar directo contra variable?
+		int indexSwap;
+		page_t* pageToSwap = searchPageFromFrame(frame);
+
+		if(pageToSwap != NULL){
+			indexSwap = swapPage(pageToSwap);
+		}
+	
+	return frame;
+
+	}
+}
+
+//TODO  ////////////////////////////////////////////////////////////////////////////////////////////////
+//Lleva una pagina a SWAP, almecenandolo en el archivo y liberando el frame donde se encontraba. No se que retorna
+int swapPage(page_t* pageToSwap){
+	return 1;
+}
+//Tengo que usar el algoritmo de CLOCK MODIFICADO para analizar el frame elegido para reemplazo.
+int modifiedClock(){
+	return 1;
+}
+
+
+//ANALIZO CADA PAGINA DE CADA SEGMENTO DE CADA PROCESO
+page_t* searchPageFromFrame(int nFrame){
+	t_list* segments;
+	t_list* pages;
+	segment_t* segment;
+	page_t* page;
+
+	for (int i = 0; i < dictionary_size(SEGMENT_TABLE); i++) {
+		segments = dictionary_get(SEGMENT_TABLE, string_itoa(/*ALGO QUE CHEQUEE TODOS LOS IDCli*/));
+
+		for (int j = 0; j < list_size(segments); j++) { 
+			segment = list_get(segments, j);
+			pages = segment->tablaPaginas;
+
+			for (int k = 0; k < list_size(pages); k++) {
+				page = list_get(pages, k);
+
+				if (page->nFrame == nFrame) {
+					return page;
+				}
+			}
+
+		}
+	}
+
+	return NULL;
+}
 
 uint32_t segmentSize(int nSegment, int idCli) {
 	char* strIdCli = string_itoa(idCli);
@@ -124,8 +316,29 @@ int getPageIndex(t_list* pagesList, page_t* page) {
 	return -1;
 }
 
-HeapLista* locateMetadataAndHeaplist(segment_t segment, int heaplocat, bool isFree, uint32_t size, bool* isSplitted, uint32_t page) {
-	heaplist* heap = malloc(sizeof(heapList));
+segment_t* setLastSegmentPage(segment_t* segment, int sizeLastMetadata) {
+
+	bool* metadataSplitted = malloc(sizeof(bool));
+	*metadataSplitted = false;
+
+	heapMetadata* lastMetadata = malloc(sizeof(heapMetadata));
+	lastMetadata->isFree = true;
+	if (tamanio_pagina - sizeLastMetadata == 0) {
+		lastMetadata->isFree = false;
+	}
+	lastMetadata->size = tamanio_pagina - sizeLastMetadata;
+	page_t* page = (list_get(segment->tablaPaginas, list_size(segment->tablaPaginas)- 1));
+	int dirHeap = (page->numeroFrame * tamanio_pagina)+ (tamanio_pagina - sizeof(heapMetadata)+ sizeLastMetadata);
+	locateMetadataAndHeaplist(segment, dirHeap, lastMetadata->isFree, lastMetadata->size, metadataSplitted, list_size(segment->tablaPaginas));
+
+	segment->tamanio += tamanio_pagina;
+
+	return segmento;
+}
+
+
+heapList* locateMetadataAndHeaplist(segment_t segment, int heaplocat, bool isFree, uint32_t size, bool* isSplitted, uint32_t page) {
+	heapList* heap = malloc(sizeof(heapList));
 
 	heap->dir = heaplocat;
 	heap->isFree = isFree;

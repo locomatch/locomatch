@@ -11,6 +11,23 @@
 #include <stddef.h>
 #include <commons/collections/dictionary.h>
 #include <commons/collections/list.h>
+#include <commons/bitarray.h>
+
+// ---- GLOBAL VARIABLES ----
+int tamanio_mem;
+int tamanio_pagina;
+int tamanio_swap;
+int cant_pags;
+int cant_frames;
+
+void* MAIN_MEMORY;
+t_dictionary* SEGMENT_TABLE;
+
+t_list* bitmapFrames;
+t_bitarray* bitmapSwap;
+
+int clockPointer;
+
 
 //----------- MEMORY STRUCTS -------------
 
@@ -49,7 +66,7 @@ typedef struct{
   bool isSplitted;
 }heapList;
 
-//Faltaria una lista de heaps?
+//Faltaria una lista de heaps? DONE
 
 
 //----------- PHARSER STRUCTS -------------
@@ -108,16 +125,6 @@ typedef struct{
   size_t tam;
 }package_sync;
 
-
-
-// ---- GLOBAL VARIABLES ----
-int tamanio_mem;
-int tamanio_pagina;
-int tamanio_swap;
-int cant_pags;
-
-void* MAIN_MEMORY;
-t_dictionary* SEGMENT_TABLE;
 
 // VIEJO
 int NUMBER_OF_PAGES;
