@@ -13,10 +13,18 @@
 #include <commons/collections/list.h>
 #include <linuse/sockets/sockets.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <sys/time.h>
+#include <float.h>
 #include "suse_errors.h"
 
 /*        CONSTANTS        */
+
+typedef enum {
+	TIMED,
+	CLOSE
+}t_metrics;
+
 /*        DEFINITIONS        */
 
 typedef struct {
@@ -37,11 +45,13 @@ typedef struct {
 
 bool endsuse;
 t_log *logger;
+t_log *metricsLog;
 t_configData *configData;
 
 /*        PROTOTYPES        */
 
 void print_malloc_error(char* element);
 void print_pthread_create_error(char* element);
+void print_suse_not_exec(int program_id, int tid);
 
 #endif /* SUSE_SHARED_H_ */

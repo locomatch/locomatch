@@ -32,7 +32,35 @@ void init_suse(){
 	init_semaforos();
 	init_server();
 
+	init_metrics();
+
 	log_info(logger, "[SUSE] Inicializacion Completa");
+}
+
+void init_metrics(){
+
+	metricsLog = log_create("metrics.log", "metrics", 1, LOG_LEVEL_DEBUG);
+
+	if (pthread_create (&metrics_thread, NULL, &timed_metrics, NULL) != 0){
+		print_pthread_create_error("metrics_thread");
+		exit(-1);
+	}
+
+	pthread_mutex_init(&metrics_mutex, NULL);
+
+	pthread_detach(metrics_thread);
+}
+
+void *timed_metrics(void *arg){
+
+	while(!endsuse){
+
+		sleep(configData->metrics_timer);
+		if(endsuse) break;
+		log_metrics(NULL);
+	}
+
+	pthread_exit(EXIT_SUCCESS);
 }
 
 t_config* generar_config(){
@@ -103,6 +131,7 @@ void init_server(){
 	if(server_socket == -1) exit(-1);
 
 	clientes = list_create();
+	pthread_mutex_init(&clientes_mutex, NULL);
 
 	if (pthread_create (&socket_thread, NULL, &wait_for_client, NULL) != 0){
 		print_pthread_create_error("socket_thread");
@@ -134,13 +163,18 @@ void join_threads(){
 	shutdown(server_socket,0);
 
 	pthread_join(socket_thread, NULL);
+	int value = 0;
+	sem_getvalue(&new_counter, &value);
+	sem_post(&new_counter);
 	pthread_join(long_term_scheduler, NULL);
 
 	t_program *cliente;
+	pthread_mutex_lock(&clientes_mutex);
 	for(int i = 0; i < list_size(clientes); i++){
 		cliente = list_get(clientes, i);
 		pthread_join(cliente->short_scheduler, NULL);
 	}
+	pthread_mutex_unlock(&clientes_mutex);
 }
 
 void end_suse(){
@@ -179,7 +213,7 @@ t_list* _get_semaforos_from_config(){
 		t_config_semaforo* semaforo = malloc(sizeof(t_config_semaforo));
 		if(semaforo == NULL) return NULL;
 
-		semaforo->id = array_ids[i];
+		semaforo->id = strdup(array_ids[i]);
 		semaforo->init = atoi(array_init[i]);
 		semaforo->max = atoi(array_max[i]);
 
@@ -187,6 +221,15 @@ t_list* _get_semaforos_from_config(){
 
 		i++;
 	}
+
+	for(int k = 0; k < i; k++){
+		free(array_ids[k]);
+		free(array_init[k]);
+		free(array_max[k]);
+	}
+	free(array_ids);
+	free(array_init);
+	free(array_max);
 
 	return semaforos;
 }
