@@ -29,6 +29,13 @@ typedef struct{
 mi_config* config_data;
 char* LOGPATH;
 
+void init_config();
+
+void init_logger();
+
+void init_server();
+	
+void init_memoria();
 
 
 #endif /* MUSE_H_ */

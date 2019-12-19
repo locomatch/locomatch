@@ -12,6 +12,7 @@
 #include <commons/collections/dictionary.h>
 #include <commons/collections/list.h>
 #include <commons/bitarray.h>
+#include <commons/string.h>
 
 // ---- GLOBAL VARIABLES ----
 int tamanio_mem;
@@ -23,10 +24,16 @@ int cant_frames;
 void* MAIN_MEMORY;
 t_dictionary* SEGMENT_TABLE;
 
+FILE* swap;
+
+
 t_list* bitmapFrames;
 t_bitarray* bitmapSwap;
 
 int clockPointer;
+
+
+
 
 
 //----------- MEMORY STRUCTS -------------
@@ -65,6 +72,30 @@ typedef struct{
   bool isFree;
   bool isSplitted;
 }heapList;
+
+//-------------DESCLARE FUNCTIONS----------
+void createBitmapFrames();
+bool isFrameFree(int nFrame);
+void fillFrame(int frame);
+void freeFrame(int frame);
+int searchFreeFrame();
+bool anyFreeFrame();
+void* framePos(int frame);
+
+segment_t* createSegment(uint32_t tamanio, int idCli);
+segment_t* setNewPage(segment_t* segment);
+int setAFrame();
+page_t* searchPageFromFrame(int nFrame);
+uint32_t segmentSize(int nSegment, int idCli);
+segment_t* setFirstSegmentPage(segment_t* segment, int metadataSize, bool* metadataSplitted);
+int getPageIndex(t_list* pagesList, page_t* page);
+segment_t* setLastSegmentPage(segment_t* segment, int sizeLastMetadata);
+heapList* locateMetadataAndHeaplist(segment_t* segment, int heaplocat, bool isFree, uint32_t size, bool* isSplitted, uint32_t page);
+void* getPosMemoryPage(page_t* page);
+segment_t* searchSegmentWithSizeAvailable(t_list* segments, int tam);
+int clockModif();
+void increaseClockPointer();
+
 
 //Faltaria una lista de heaps? DONE
 
@@ -134,45 +165,6 @@ int VALUE_SIZE;
 t_config* config;
 //VIEJO
 
-
-//COMUNICACION CON SOCKET? Muse?
-
-// --------------------------
-
-
-page_t* create_page();
-page_info_t* create_page_info();
-segment_t* create_segment();
-page_info_t* find_page_info(char* table_name, int key);
-page_info_t* save_page(char* table_name, page_t* page);
-page_info_t* insert_page(char* table_name, page_t* page);
-void remove_from_segment(segment_t* segment, page_info_t* page_info);
-page_info_t* save_page_to_memory(char* table_name, page_t* page, int dirtybit);
-segment_t* find_segment(char* table_name);
-segment_t* find_or_create_segment(char* table_name);
-int find_free_page();
-void remove_page(page_info_t* page_info);
-void remove_and_save_page(page_info_t* page_info);
-void remove_all_pages_from_segment(segment_t* segment, int save_to_fs_bit);
-void add_segment_to_table(segment_t* segment);
-void add_page_to_segment(segment_t* segment, page_info_t* page_info);
-segment_t* get_last_segment();
-page_info_t* get_last_page(page_info_t* page_info);
-void print_page(page_info_t* page_info);
-void print_segment_table();
-void print_segment_pages(segment_t* segment);
-int find_page_in_LRU(page_info_t* page);
-
-int is_modified(page_info_t* page_info);
-char* exec_in_memory(int memory_fd, char* payload);
-void remove_segment(char* table_name, int save_to_fs_bit);
-int* get_used_pages();
-int* update_used_pages();
-int find_unmodified_page();
-
-void print_everything();
-int memory_full();
-int is_memory_full();
 
 
 #endif

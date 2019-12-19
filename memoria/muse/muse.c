@@ -14,7 +14,7 @@
 #include <signal.h>
 
 
-int main(char const *argv[]) { //Tomado de otra repo, sirve para inicializar diferentes configs
+int main() { //Tomado de otra repo, sirve para inicializar diferentes configs //char const *argv[]
 
 	init_config();
 
@@ -22,20 +22,18 @@ int main(char const *argv[]) { //Tomado de otra repo, sirve para inicializar dif
 
 	log_info(logger, "[MUSE] Iniciando.. \n");
 
+	init_memoria();
+	
 	init_server();
 	
-	init_memoria();
 
 	exit(EXIT_SUCCESS);
 }
 
 void init_config(){
 	config_data = malloc(sizeof(mi_config));
-	char* config_name = malloc(10);
-	strcpy(config_name, "config");
-	strcat(config_name, argv[1]); //xq me tira error? Tengo entendido que como argumento pongo que config quiero inicializar
 
-	generate_config(config_data, config_name);
+	generate_config(config_data, "config0");
 	printf("Config Inicializado. \n");
 }
 
@@ -54,18 +52,19 @@ void init_memoria(){
   MAIN_MEMORY = malloc(tamanio_mem);
   if(MAIN_MEMORY == NULL) {
     log_error(logger, "No se pudo alocar espacio para la memoria principal.");
-    return 0;
   }
   memset(MAIN_MEMORY, 0, tamanio_mem); 
 }
 
 void init_server(){
 //deberia ir directo al main?
-	cargar_datos_muse();
-	server_socket = iniciar_servidor(muse_config.ip_escucha, muse_config.puerto_escucha);
+	server_socket = iniciar_servidor(config_data->ip, config_data->puerto);
 	if(server_socket == -1) exit(-1);
 //Deberia hacerse con Threads??
+t_list* clients;
+	while(1){
 	int cliente_s = esperar_cliente(server_socket);
+
 
 t_list* lista;
 while(1)
@@ -122,7 +121,7 @@ switch (cod_op) {
 		break;
 	}
 }
-return EXIT_SUCCESS;
+//return EXIT_SUCCESS;
 
 }
 
