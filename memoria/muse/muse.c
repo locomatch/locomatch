@@ -57,50 +57,71 @@ void init_memoria(){
 }
 
 void init_server(){
-//deberia ir directo al main?
 	server_socket = iniciar_servidor(config_data->ip, config_data->puerto);
 	if(server_socket == -1) exit(-1);
-//Deberia hacerse con Threads??
-t_list* clients;
+
+	clientes = list_create();
+
+	if (pthread_create (&socket_thread, NULL, &wait_for_client, NULL) != 0){
+		print_pthread_create_error("socket_thread");
+		exit(-1);
+	}
+
+void* wait_for_client(void *arg){
+
+	log_info(logger, "Esperando Clientes.");
+	int cliente;
+
 	while(1){
+		cliente = esperar_cliente(server_socket);
+		if (cliente > 0) {
+			list_add(clientes, cliente);
+		}
+
+		cliente = NULL_CLIENTE;
+	}
+
+	log_debug(logger, "Finalizando Servidor Escucha");
+
+	pthread_exit(EXIT_SUCCESS);
+}
+//Deberia hacerse con Threads??
+	while(1){
+
 	int cliente_s = esperar_cliente(server_socket);
 
-
-t_list* lista;
-while(1)
-{
+while(1){
+	
 t_list *parametros = list_create();
 int cod_op = recibir_operacion(cliente_s);
-uint32_t tam; //int?
-uint32_t dir; //int?
-uint32_t src; //PODRIAN SER EL MISMO, NO?
-size_t n;
-void* dst;
-
-//charX = (char*)list_get(parametros, x);
 
 switch (cod_op) {
 	case MUSE_ALLOC:
 		parametros = recibir_paquete(server_socket);
-		tam = atoi(list_get(parametros, 0));
+		uint32_t tam = atoi(list_get(parametros, 0));
 		//ejecutar proceso e enviar respuesta
 		break;
 
 	case MUSE_FREE:
 		parametros = recibir_paquete(server_socket);
-		dir = atoi(list_get(parametros, 0));
+		uint32_t dir = atoi(list_get(parametros, 0));
 		//ejecutar proceso e enviar respuesta
 		break;
 
 	case MUSE_GET:
 		parametros = recibir_paquete(server_socket);
-		dst = //COMO HAGO ACA? (char*)list_get(parametros, 0);
-		src = atoi(list_get(parametros, 1));
-		n = atoi(list_get(parametros, 2));
+		int dst = atoi(list_get(parametros, 0));
+		uint32_t src = atoi(list_get(parametros, 1));
+		int n = atoi(list_get(parametros, 2));
 		//ejecutar proceso e enviar respuesta
 		break;
 
 	case MUSE_CPY:
+		parametros = recibir_paquete(server_socket);
+		int dst = atoi(list_get(parametros, 0));
+		uint32_t src = atoi(list_get(parametros, 1));
+		int n = atoi(list_get(parametros, 2));
+		//ejecutar proceso e enviar respuesta		
 		break;
 
 	case MUSE_MAP:
@@ -110,14 +131,10 @@ switch (cod_op) {
 		break;
 
 	case MUSE_UNMAP:
-		break;   
-
-	case -1:
-		log_error(logger, "el cliente se desconecto. Terminando servidor");
-		return EXIT_FAILURE;
+		break;
 		
 	default:
-		log_warning(logger, "Operacion desconocida. No quieras meter la pata");
+		log_warning(logger, "Operacion desconocida.");
 		break;
 	}
 }

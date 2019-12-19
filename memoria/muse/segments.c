@@ -240,7 +240,7 @@ page_t* searchPageFromFrame(int nFrame){
 	page_t* page;
 
 	for (int i = 0; i < dictionary_size(SEGMENT_TABLE); i++) {
-		segments = dictionary_get(SEGMENT_TABLE, string_itoa(/*ALGO QUE CHEQUEE TODOS LOS IDCli*/));
+		segments = dictionary_get(SEGMENT_TABLE, string_itoa(/*ALGO QUE CHEQUEE TODOS LOS IDCli*/)); ///*ALGO QUE CHEQUEE TODOS LOS IDCli*/
 
 		for (int j = 0; j < list_size(segments); j++) { 
 			segment = list_get(segments, j);

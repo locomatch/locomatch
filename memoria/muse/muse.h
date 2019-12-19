@@ -13,9 +13,13 @@
 t_log* logger;
 int server_socket;
 
+t_list* clientes;
+
 void init_server();
 void init_logger();
 void cargar_datos_muse();
+
+pthread_t socket_thread;
 
 
 typedef struct{
@@ -36,6 +40,9 @@ void init_logger();
 void init_server();
 	
 void init_memoria();
+
+
+void* wait_for_client(void *arg);
 
 
 #endif /* MUSE_H_ */
