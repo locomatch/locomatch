@@ -85,7 +85,7 @@ uint32_t segmentSize(int nSegment, int idCli) {
 
 
 // Me falta onsiderar si se partio la metadata. Por ahi algo asi? -> bool *metadataSplited)
-struct segment_t* setFirstSegmentPage(segment_t* segment, int metadataSize) { 
+struct segment_t* setFirstSegmentPage(segment_t* segment, int metadataSize, bool* metadataSplitted) { 
 
 	page_t* firstPage = malloc(sizeof(page_t));
 	firstPage->nFrame = asignarUnFrame();
@@ -101,7 +101,7 @@ struct segment_t* setFirstSegmentPage(segment_t* segment, int metadataSize) {
 
 	list_add(segment->tablaPaginas, firstPage);
 
-		int pos = getPageIndex(segment->tablaPaginas, firstPage)* tamanio_pagina;
+	int index = getPageIndex(segment->tablaPaginas, firstPage) * tamanio_pagina;
 
 	heapMetadata* metadata = malloc(sizeof(heapMetadata));
 	metadata->isFree = false;
@@ -124,6 +124,26 @@ int getPageIndex(t_list* pagesList, page_t* page) {
 	return -1;
 }
 
+HeapLista* locateMetadataAndHeaplist(segment_t segment, int heaplocat, bool isFree, uint32_t size, bool* isSplitted, uint32_t page) {
+	heaplist* heap = malloc(sizeof(heapList));
+
+	heap->dir = heaplocat;
+	heap->isFree = isFree;
+	heap->size = size;
+
+	int indexFirstPage = page - 1;
+	page_t provPage = list_get(segmento->tablaPaginas, indexFirstPage);
+
+
+	frame_t frameFirstPage = list_get(/*BITMAP DE FRAMES*/, pagina->numeroFrame);
+	framePrimeraPagina->modif = 1;
+	framePrimeraPagina->used = 1;
+
+	int despFirstPage = heaplocat % tamanio_pagina;
+
+	heapMetadata* metadata = malloc(sizeof(metadata));
+	metadata->size = size;
+	metadata->isFree = isFree;
 
 
 

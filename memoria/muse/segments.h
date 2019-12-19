@@ -41,6 +41,14 @@ typedef struct{
   bool isFree;
 }heapMetadata;
 
+typedef struct{
+  int dir;
+  int size;
+  int bytesUsed; //Bytes usados en el primer heap. SOlo si isSplitted = true
+  bool isFree;
+  bool isSplitted;
+}heapList;
+
 //Faltaria una lista de heaps?
 
 
