@@ -93,6 +93,7 @@ int insert_to_opened_files_table(struct sac_opened_file* opened_file);
 void format_bitmap_nodetable();
 
 char* search_for_dir_childs(int dir_node_number);
+char* search_for_dir_childs2(int dir_node_number);
 
 void format_disk();
 

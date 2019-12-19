@@ -1,8 +1,8 @@
 #include "sac_cli.h"
 
-#define IP "127.0.0.1"
-#define PUERTO "8003"
-#define PACKAGESIZE 1024
+//#define IP "127.0.0.1"
+//#define PUERTO "8003"
+//#define PACKAGESIZE 1024
 
 int serverSocket;
 t_log* logger;
@@ -66,6 +66,12 @@ int main (int argc,char *argv[]) {
     printf("Corriendo el cliente\n");
     
     //acá tengo que implementar fuse para mandar todo a sac_servidor que se va a encargar de implementar el fs
+
+    /*CONFIG*/
+    t_config* config = config_create("config");
+    int PUERTO = config_get_int_value(config, "PORT");
+    int IP = config_get_int_value(config, "IP");
+    int PACKAGESIZE = config_get_int_value(config, "PACKAGESIZE");
 
     /*LOG*/
     char* LOGPATH = "sac_cli.log";

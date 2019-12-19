@@ -454,9 +454,29 @@ char* action_mknod(package_mknod* package) {
 
     fwrite(&file_node, BLOCK_SIZE, 1, disco);
 
-    fclose(disco);
+    //fclose(disco);
 
     printf("checkpoint 15\n");
+
+    //Guardar el numero del nodo en el directorio
+    //abro el nodo del directorio
+    struct sac_file_t directory_node;
+    fseek(&directory_node,directory_node_number * BLOCK_SIZE,SEEK_SET);
+    //me traigo los bloques
+    fread(&directory_node,BLOCK_SIZE,1,disco);
+    int directory_capacity = strlen(directory_node.blocks);
+    if (directory_capacity == 1000) {
+        //El directorio esta lleno
+        log_error(logger, "El directorio donde quiere guardar el archivo esta lleno");
+        char* response = "ENOTDIR"; //TODO ver si es ENOTDIR o ENOENT o otro
+        return response;
+    }
+    directory_node.blocks[directory_capacity + 1] = free_block; //agrego el nodo del archivo al directorio
+    
+    //guardo el nodo del directorio donde estaba
+    fseek(&directory_node,directory_node_number * BLOCK_SIZE,SEEK_SET);
+    fwrite(&directory_node, BLOCK_SIZE, 1, disco);
+    fclose(disco);
 
     char* response = malloc(sizeof(char)*2);
     //response[0] = '\0';
@@ -577,6 +597,27 @@ char* action_mkdir(package_mkdir* package) {
     fseek(disco, offset, SEEK_SET); //en la posicion del bloque libre
 
     fwrite(&file_node, BLOCK_SIZE, 1, disco);
+
+
+    //Guardar el numero del nodo en el directorio
+    //abro el nodo del directorio
+    struct sac_file_t directory_node;
+    fseek(&directory_node,directory_node_number * BLOCK_SIZE,SEEK_SET);
+    //me traigo los bloques
+    fread(&directory_node,BLOCK_SIZE,1,disco);
+    int directory_capacity = strlen(directory_node.blocks);
+    if (directory_capacity == 1000) {
+        //El directorio esta lleno
+        log_error(logger, "El directorio donde quiere guardar el archivo esta lleno");
+        char* response = "ENOTDIR"; //TODO ver si es ENOTDIR o ENOENT o otro
+        return response;
+    }
+    directory_node.blocks[directory_capacity + 1] = free_block; //agrego el nodo del archivo al directorio
+    
+    //guardo el nodo del directorio donde estaba
+    fseek(&directory_node,directory_node_number * BLOCK_SIZE,SEEK_SET);
+    fwrite(&directory_node, BLOCK_SIZE, 1, disco);
+
 
     fclose(disco);
 
@@ -749,10 +790,6 @@ char* action_write(package_write* package) {
     }
 }
 
-/////////////////////////////////////////////////////////////////////////////
-//TODO AL FORMATEAR, CREAR EL NODO DEL DIRECTORIO RAIZ
-/////////////////////////////////////////////////////////////////////////////
-
 /* action_opendir abre un directorio */
 char* action_opendir(package_opendir* package) {
     log_info(logger,"Se recibio una accion opendir");
@@ -850,7 +887,7 @@ char* action_readdir(package_readdir* package) {
         return response;
     }
 
-    char* response = search_for_dir_childs(dir_node_number);
+    char* response = search_for_dir_childs2(dir_node_number);
     
     return response;
 }
@@ -1508,6 +1545,31 @@ char* search_for_dir_childs(int dir_node_number) {
             string_append(&dir_content, current_node.fname);
             string_append(&dir_content, "/");
         }
+    }
+
+    fclose(disco);
+
+    return dir_content;
+}
+
+char* search_for_dir_childs2(int dir_node_number) { // Esta version de search for dir no recorre toda la tabla de nodos sino que recorre los bloques del dir
+    
+    FILE* disco = fopen("disco.bin", "r+");
+
+    int offset = dir_node_number * BLOCK_SIZE;
+    fseek(disco, offset, SEEK_SET); //Me paro en el nodo del directorio
+
+    struct sac_file_t directory_node;
+    fread(&directory_node, BLOCK_SIZE, 1, disco);
+
+    struct sac_file_t current_node;
+    char *dir_content = string_new();
+
+    int i = 0;
+    while(strcmp(directory_node.blocks[i], '\0') != 0) {
+        fread(&current_node, BLOCK_SIZE, 1, disco);
+        string_append(&dir_content, current_node.fname);
+        string_append(&dir_content, "/");
     }
 
     fclose(disco);
